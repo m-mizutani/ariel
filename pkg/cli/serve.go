@@ -11,6 +11,7 @@ import (
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/urfave/cli/v3"
 
+	githubadapter "github.com/m-mizutani/ariel/pkg/adapter/github"
 	googleadapter "github.com/m-mizutani/ariel/pkg/adapter/google"
 	"github.com/m-mizutani/ariel/pkg/adapter/localcipher"
 	notionadapter "github.com/m-mizutani/ariel/pkg/adapter/notion"
@@ -29,6 +30,10 @@ const (
 	// claims only exist to drop redelivered events.
 	slackEventClaimTTL = 24 * time.Hour
 
+	// githubRequestTimeout bounds each call to GitHub, so a GitHub that does
+	// not answer cannot hold a request to Ariel open.
+	githubRequestTimeout = 30 * time.Second
+
 	readHeaderTimeout = 10 * time.Second
 	shutdownTimeout   = 10 * time.Second
 	// notionHTTPTimeout bounds one call to Notion, so a request handler is
@@ -43,6 +48,7 @@ type serveConfig struct {
 	kms        config.KMS
 	google     config.Google
 	notion     config.Notion
+	github     config.GitHub
 	noAuth     config.NoAuth
 }
 
@@ -54,12 +60,13 @@ func (c *serveConfig) flags() []cli.Flag {
 	flags = append(flags, c.kms.Flags()...)
 	flags = append(flags, c.google.Flags()...)
 	flags = append(flags, c.notion.Flags()...)
+	flags = append(flags, c.github.Flags()...)
 	flags = append(flags, c.noAuth.Flags()...)
 	return flags
 }
 
 func (c *serveConfig) validate() error {
-	for _, v := range []interface{ Validate() error }{&c.server, &c.repository, &c.google, &c.noAuth} {
+	for _, v := range []interface{ Validate() error }{&c.server, &c.repository, &c.google, &c.github, &c.noAuth} {
 		if err := v.Validate(); err != nil {
 			return err
 		}
@@ -182,6 +189,16 @@ func runServe(ctx context.Context, cfg *serveConfig) error {
 			WorkspaceID: cfg.notion.WorkspaceID(),
 		})
 		httpOpts = append(httpOpts, httpctrl.WithNotion(notionUC))
+	}
+	if cfg.github.Enabled() {
+		httpClient := &http.Client{Timeout: githubRequestTimeout}
+		githubOAuth := githubadapter.NewOAuth(cfg.github.ClientID(), cfg.github.ClientSecret(), httpClient)
+		githubUsers := githubadapter.NewUserClientFactory(httpClient)
+		githubUC := usecase.NewGitHubUseCase(githubOAuth, githubUsers,
+			usecase.NewGitHubUserAccess(repo, cipher, githubOAuth, githubUsers),
+			usecase.GitHubConfig{BaseURL: cfg.server.BaseURL()},
+		)
+		httpOpts = append(httpOpts, httpctrl.WithGitHub(githubUC))
 	}
 
 	handler, err := httpctrl.New(authUC, httpctrl.Config{BaseURL: cfg.server.BaseURL()}, httpOpts...)

@@ -102,3 +102,33 @@ export async function disconnectNotion(): Promise<void> {
 export function startNotionConnect(): void {
   window.location.assign(`${notionPath}/connect`)
 }
+
+export type GitHubStatus = {
+  // false when the server has no GitHub App configured
+  available: boolean
+  connected: boolean
+  // the login of the connected GitHub account; empty when not connected
+  login: string
+}
+
+const githubPath = `${apiV1}/integrations/github`
+
+// Throws when the request fails or the response is not 2xx.
+export async function fetchGitHubStatus(): Promise<GitHubStatus> {
+  const res = await fetch(githubPath, { credentials: 'include' })
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`)
+  }
+  return (await res.json()) as GitHubStatus
+}
+
+export async function disconnectGitHub(): Promise<void> {
+  const res = await fetch(`${githubPath}/disconnect`, { method: 'POST', credentials: 'include' })
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`)
+  }
+}
+
+export function startGitHubConnect(): void {
+  window.location.assign(`${githubPath}/connect`)
+}

@@ -21,6 +21,7 @@ func clearServeEnv(t *testing.T) {
 		"ARIEL_SLACK_BOT_TOKEN", "ARIEL_SLACK_TEAM_ID", "ARIEL_KMS_KEY_NAME", "ARIEL_NO_AUTH",
 		"ARIEL_GOOGLE_CLIENT_ID", "ARIEL_GOOGLE_CLIENT_SECRET",
 		"ARIEL_NOTION_CLIENT_ID", "ARIEL_NOTION_CLIENT_SECRET", "ARIEL_NOTION_WORKSPACE_ID", "ARIEL_NOTION_API_URL",
+		"ARIEL_GITHUB_CLIENT_ID", "ARIEL_GITHUB_CLIENT_SECRET",
 	} {
 		t.Setenv(name, "")
 		gt.NoError(t, os.Unsetenv(name)).Required()
@@ -179,6 +180,31 @@ func TestServe_NotionAPIURLNeedsNoAuth(t *testing.T) {
 	err := cli.Run(context.Background(), args, "test")
 	gt.Value(t, err).NotNil().Required()
 	gt.String(t, err.Error()).Contains("--notion-api-url can be changed only with --no-auth")
+}
+
+func noAuthGitHubArgs() []string {
+	args := without(without(noAuthGoogleArgs(), "--google-client-id"), "--google-client-secret")
+	return append(args, "--github-client-id", "Iv1.client", "--github-client-secret", "client-secret")
+}
+
+func TestServe_NoAuthAcceptsGitHub(t *testing.T) {
+	clearServeEnv(t)
+	err := cli.Run(context.Background(), noAuthGitHubArgs(), "test")
+	gt.Value(t, err).NotNil().Required()
+	gt.String(t, err.Error()).Contains("HTTP server stopped")
+}
+
+func TestServe_GitHubNeedsBothFlags(t *testing.T) {
+	clearServeEnv(t)
+	for _, flag := range []string{"--github-client-id", "--github-client-secret"} {
+		t.Run("without "+flag, func(t *testing.T) {
+			for _, args := range [][]string{without(noAuthGitHubArgs(), flag), without(append(validServeArgs(), "--github-client-id", "Iv1.client", "--github-client-secret", "client-secret"), flag)} {
+				err := cli.Run(context.Background(), args, "test")
+				gt.Value(t, err).NotNil().Required()
+				gt.String(t, err.Error()).Contains("--github-client-id and --github-client-secret must be set together")
+			}
+		})
+	}
 }
 
 func TestRun_InvalidLogLevel(t *testing.T) {

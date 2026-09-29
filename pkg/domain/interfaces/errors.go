@@ -45,4 +45,12 @@ var (
 	// ErrNotionAccountInUse is returned when a Notion account is already
 	// connected to another user.
 	ErrNotionAccountInUse = errors.New("notion account is connected to another user")
+
+	// ErrGitHubTokenInvalid is returned when GitHub rejects a token as
+	// invalid (revoked, expired, already used, or unknown).
+	ErrGitHubTokenInvalid = errors.New("github token is invalid")
+
+	// ErrGitHubAccountInUse is returned when a GitHub account is already
+	// connected to another user.
+	ErrGitHubAccountInUse = errors.New("github account is connected to another user")
 )

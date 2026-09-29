@@ -34,8 +34,9 @@ test.beforeEach(async ({ page }) => {
       await route.fulfill({ status: 200, contentType: 'text/html', body })
     }
   })
-  // Notion is not connected unless a test mocks its status.
+  // Notion and GitHub are not connected unless a test mocks their status.
   await mockNotion(page, 200, notionNotConnected)
+  await mockGitHub(page, 200, githubNotConnected)
 })
 
 // Resolved against the working directory, which is frontend/ for `pnpm screenshots`.
@@ -98,6 +99,23 @@ async function settingsWithNotion(page: Page, notion: object) {
   await mockMe(page, 200, me(true))
   await mockGoogle(page, 200, googleNotConnected)
   await mockNotion(page, 200, notion)
+}
+
+const githubNotConnected = { available: true, connected: false, login: '' }
+const githubConnected = { available: true, connected: true, login: 'octocat' }
+
+async function mockGitHub(page: Page, status: number, body: object) {
+  await page.route('**/api/v1/integrations/github', (route) =>
+    route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) }),
+  )
+}
+
+// The settings page of a user linked to Slack, without Google Workspace or
+// Notion, and with the given GitHub status.
+async function settingsWithGitHub(page: Page, github: object) {
+  await mockMe(page, 200, me(true))
+  await mockGoogle(page, 200, googleNotConnected)
+  await mockGitHub(page, 200, github)
 }
 
 test('login: initial', async ({ page }) => {
@@ -369,6 +387,91 @@ for (const [result, name, text] of [
   test(`settings: Notion connection result ${result}`, async ({ page }) => {
     await settingsWithNotion(page, result === 'connected' ? notionConnected : notionNotConnected)
     await page.goto(`/settings?notion=${result}`)
+    await expect(page.getByText(text)).toBeVisible()
+    await page.screenshot(shot(name))
+  })
+}
+
+const githubRow = (page: Page) => page.getByRole('listitem', { name: 'GitHub' })
+
+test('settings: GitHub status being checked', async ({ page }) => {
+  await mockMe(page, 200, me(true))
+  await mockGoogle(page, 200, googleNotConnected)
+  await page.route('**/api/v1/integrations/github', () => new Promise(() => {}))
+  await page.goto('/settings')
+  await expect(githubRow(page).getByText('Checking…')).toBeVisible()
+  await page.screenshot(shot('settings-github-checking'))
+})
+
+test('settings: GitHub status check failed', async ({ page }) => {
+  await mockMe(page, 200, me(true))
+  await mockGoogle(page, 200, googleNotConnected)
+  await mockGitHub(page, 500, { error: 'internal_error' })
+  await page.goto('/settings')
+  await expect(githubRow(page).getByRole('button', { name: 'Check GitHub again' })).toBeVisible()
+  await page.screenshot(shot('settings-github-check-failed'))
+})
+
+test('settings: GitHub not available', async ({ page }) => {
+  await settingsWithGitHub(page, { available: false, connected: false, login: '' })
+  await page.goto('/settings')
+  await expect(githubRow(page).getByText('Not available')).toBeVisible()
+  await page.screenshot(shot('settings-github-unavailable'))
+})
+
+test('settings: GitHub not connected', async ({ page }) => {
+  await settingsWithGitHub(page, githubNotConnected)
+  await page.goto('/settings')
+  await expect(page.getByRole('button', { name: 'Connect GitHub' })).toBeEnabled()
+  await page.screenshot(shot('settings-github-not-connected'))
+})
+
+test('settings: connecting GitHub', async ({ page }) => {
+  await settingsWithGitHub(page, githubNotConnected)
+  // See 'login: redirecting to Slack': a 204 keeps the current document.
+  await page.route('**/api/v1/integrations/github/connect', (route) => route.fulfill({ status: 204 }))
+  await page.goto('/settings')
+  await page.getByRole('button', { name: 'Connect GitHub' }).click({ noWaitAfter: true })
+  await expect(page.getByRole('button', { name: 'Redirecting to GitHub…' })).toBeDisabled()
+  await page.screenshot(shot('settings-github-connecting'))
+})
+
+test('settings: GitHub connected', async ({ page }) => {
+  await settingsWithGitHub(page, githubConnected)
+  await page.goto('/settings')
+  await expect(githubRow(page).getByText('Account: @octocat')).toBeVisible()
+  await page.screenshot(shot('settings-github-connected'))
+})
+
+test('settings: disconnecting GitHub', async ({ page }) => {
+  await settingsWithGitHub(page, githubConnected)
+  await page.route('**/api/v1/integrations/github/disconnect', () => new Promise(() => {}))
+  await page.goto('/settings')
+  await page.getByRole('button', { name: 'Disconnect GitHub' }).click()
+  await expect(page.getByRole('button', { name: 'Disconnecting…' })).toBeDisabled()
+  await page.screenshot(shot('settings-github-disconnecting'))
+})
+
+test('settings: disconnecting GitHub failed', async ({ page }) => {
+  await settingsWithGitHub(page, githubConnected)
+  await page.route('**/api/v1/integrations/github/disconnect', (route) =>
+    route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"internal_error"}' }),
+  )
+  await page.goto('/settings')
+  await page.getByRole('button', { name: 'Disconnect GitHub' }).click()
+  await expect(githubRow(page).getByRole('alert')).toContainText('Could not disconnect GitHub.')
+  await page.screenshot(shot('settings-github-disconnect-failed'))
+})
+
+for (const [result, name, text] of [
+  ['connected', 'settings-github-notice-connected', 'GitHub is connected.'],
+  ['access_denied', 'settings-github-notice-access-denied', 'you cancelled the request on GitHub'],
+  ['account_in_use', 'settings-github-notice-account-in-use', 'already connected to another Ariel user'],
+  ['failed', 'settings-github-notice-failed', 'Could not connect GitHub.'],
+] as const) {
+  test(`settings: GitHub connection result ${result}`, async ({ page }) => {
+    await settingsWithGitHub(page, result === 'connected' ? githubConnected : githubNotConnected)
+    await page.goto(`/settings?github=${result}`)
     await expect(page.getByText(text)).toBeVisible()
     await page.screenshot(shot(name))
   })

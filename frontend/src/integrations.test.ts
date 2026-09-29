@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { NotionStatus } from './api'
-import { listIntegrations, type GoogleWorkspaceState, type NotionState } from './integrations'
+import { listIntegrations, type GitHubState, type GoogleWorkspaceState, type NotionState } from './integrations'
 
 const me = (connected: boolean) => ({ team_id: 'T1', user_id: 'U1', name: 'Alice', slack_connected: connected })
 
@@ -17,9 +17,19 @@ const notionStatus = (status: Partial<NotionStatus>): NotionState => ({
 const notionNotConnected = notionStatus({})
 const notionConnected = notionStatus({ connected: true, user_name: 'Alice Example', workspace_name: 'Acme' })
 
+const githubNotConnected: GitHubState = {
+  kind: 'loaded',
+  status: { available: true, connected: false, login: '' },
+}
+
+const githubConnected: GitHubState = {
+  kind: 'loaded',
+  status: { available: true, connected: true, login: 'octocat' },
+}
+
 describe('listIntegrations', () => {
   it('lists the services in display order', () => {
-    expect(listIntegrations(me(true), googleNotConnected, notionNotConnected).map((i) => [i.id, i.name])).toEqual([
+    expect(listIntegrations(me(true), googleNotConnected, notionNotConnected, githubNotConnected).map((i) => [i.id, i.name])).toEqual([
       ['slack', 'Slack'],
       ['google_workspace', 'Google Workspace'],
       ['notion', 'Notion'],
@@ -28,29 +38,29 @@ describe('listIntegrations', () => {
   })
 
   it('marks Slack connected when the user has a Slack token', () => {
-    expect(listIntegrations(me(true), googleNotConnected, notionNotConnected).map((i) => i.status)).toEqual([
+    expect(listIntegrations(me(true), googleNotConnected, notionNotConnected, githubNotConnected).map((i) => i.status)).toEqual([
       'connected',
       'not_connected',
       'not_connected',
-      'coming_soon',
+      'not_connected',
     ])
   })
 
   it('marks Slack not connected when the user has no Slack token', () => {
-    expect(listIntegrations(me(false), googleNotConnected, notionNotConnected)[0].status).toEqual('not_connected')
+    expect(listIntegrations(me(false), googleNotConnected, notionNotConnected, githubNotConnected)[0].status).toEqual('not_connected')
   })
 
   it('explains that Slack cannot be disconnected only while it is connected', () => {
-    expect(listIntegrations(me(true), googleNotConnected, notionNotConnected)[0].description).toContain(
+    expect(listIntegrations(me(true), googleNotConnected, notionNotConnected, githubNotConnected)[0].description).toContain(
       'you cannot disconnect Slack on this page',
     )
-    expect(listIntegrations(me(false), googleNotConnected, notionNotConnected)[0].description).not.toContain(
+    expect(listIntegrations(me(false), googleNotConnected, notionNotConnected, githubNotConnected)[0].description).not.toContain(
       'cannot disconnect',
     )
   })
 
   describe('Google Workspace', () => {
-    const google = (state: GoogleWorkspaceState) => listIntegrations(me(true), state, notionNotConnected)[1]
+    const google = (state: GoogleWorkspaceState) => listIntegrations(me(true), state, notionNotConnected, githubNotConnected)[1]
 
     it.each([
       [{ kind: 'loading' } as const, 'checking'],
@@ -79,16 +89,16 @@ describe('listIntegrations', () => {
 
     it('keeps the other services unchanged whatever its state', () => {
       for (const state of [{ kind: 'loading' } as const, { kind: 'error' } as const, googleNotConnected]) {
-        const [slack, , notion, github] = listIntegrations(me(true), state, notionConnected)
+        const [slack, , notion, github] = listIntegrations(me(true), state, notionConnected, githubNotConnected)
         expect(slack.status).toEqual('connected')
         expect(notion.status).toEqual('connected')
-        expect(github.status).toEqual('coming_soon')
+        expect(github.status).toEqual('not_connected')
       }
     })
   })
 
   describe('Notion', () => {
-    const notion = (state: NotionState) => listIntegrations(me(true), googleNotConnected, state)[2]
+    const notion = (state: NotionState) => listIntegrations(me(true), googleNotConnected, state, githubNotConnected)[2]
 
     it.each([
       [{ kind: 'loading' } as const, 'checking'],
@@ -136,10 +146,51 @@ describe('listIntegrations', () => {
 
     it('keeps the other services unchanged whatever its state', () => {
       for (const state of [{ kind: 'loading' } as const, { kind: 'error' } as const, notionConnected]) {
-        const [slack, google, , github] = listIntegrations(me(true), googleNotConnected, state)
+        const [slack, google, , github] = listIntegrations(me(true), googleNotConnected, state, githubNotConnected)
         expect(slack.status).toEqual('connected')
         expect(google.status).toEqual('not_connected')
-        expect(github.status).toEqual('coming_soon')
+        expect(github.status).toEqual('not_connected')
+      }
+    })
+  })
+
+  describe('GitHub', () => {
+    const github = (state: GitHubState) =>
+      listIntegrations(me(true), googleNotConnected, notionNotConnected, state)[3]
+
+    it.each([
+      [{ kind: 'loading' } as const, 'checking'],
+      [{ kind: 'error' } as const, 'check_failed'],
+      [{ kind: 'loaded', status: { available: false, connected: false, login: '' } } as const, 'unavailable'],
+      [githubNotConnected, 'not_connected'],
+      [githubConnected, 'connected'],
+    ])('maps %j to %s', (state, status) => {
+      expect(github(state).status).toEqual(status)
+    })
+
+    it('shows the connected account as @login only when connected', () => {
+      expect(github(githubConnected).account).toEqual('@octocat')
+      expect(github(githubNotConnected).account).toBeUndefined()
+    })
+
+    it('describes the read-only access, or that the server has not set it up', () => {
+      expect(github(githubNotConnected).description).toEqual(
+        'Gives Ariel read-only access to the repositories, issues, pull requests, and other GitHub content your GitHub account can see, ' +
+          'in organizations where the Ariel GitHub App is installed. ' +
+          'No Ariel feature uses this access yet. Ariel cannot create or change anything.',
+      )
+      expect(github(githubConnected).description).toEqual(github(githubNotConnected).description)
+      expect(github({ kind: 'loaded', status: { available: false, connected: false, login: '' } }).description).toEqual(
+        'Your Ariel administrator has not set up this integration.',
+      )
+    })
+
+    it('keeps the other services unchanged whatever its state', () => {
+      for (const state of [{ kind: 'loading' } as const, { kind: 'error' } as const, githubConnected]) {
+        const [slack, google, notion] = listIntegrations(me(true), googleNotConnected, notionNotConnected, state)
+        expect(slack.status).toEqual('connected')
+        expect(google.status).toEqual('not_connected')
+        expect(notion.status).toEqual('not_connected')
       }
     })
   })

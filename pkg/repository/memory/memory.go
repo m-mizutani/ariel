@@ -12,6 +12,7 @@ type Memory struct {
 	slackCredential           *slackCredentialRepository
 	googleWorkspaceCredential *googleWorkspaceCredentialRepository
 	notionCredential          *notionCredentialRepository
+	githubCredential          *githubCredentialRepository
 	session                   *sessionRepository
 	slackEvent                *slackEventRepository
 }
@@ -24,6 +25,7 @@ func New() *Memory {
 		slackCredential:           newSlackCredentialRepository(),
 		googleWorkspaceCredential: newGoogleWorkspaceCredentialRepository(),
 		notionCredential:          newNotionCredentialRepository(),
+		githubCredential:          newGitHubCredentialRepository(),
 		session:                   newSessionRepository(),
 		slackEvent:                newSlackEventRepository(),
 	}
@@ -36,6 +38,9 @@ func (m *Memory) GoogleWorkspaceCredential() interfaces.GoogleWorkspaceCredentia
 }
 func (m *Memory) NotionCredential() interfaces.NotionCredentialRepository {
 	return m.notionCredential
+}
+func (m *Memory) GitHubCredential() interfaces.GitHubCredentialRepository {
+	return m.githubCredential
 }
 func (m *Memory) Session() interfaces.SessionRepository       { return m.session }
 func (m *Memory) SlackEvent() interfaces.SlackEventRepository { return m.slackEvent }

@@ -2,6 +2,7 @@ package interfaces
 
 import (
 	"context"
+	"time"
 
 	"github.com/m-mizutani/ariel/pkg/domain/model"
 	"github.com/m-mizutani/ariel/pkg/domain/model/auth"
@@ -15,6 +16,7 @@ type Repository interface {
 	SlackCredential() SlackCredentialRepository
 	GoogleWorkspaceCredential() GoogleWorkspaceCredentialRepository
 	NotionCredential() NotionCredentialRepository
+	GitHubCredential() GitHubCredentialRepository
 	Session() SessionRepository
 	SlackEvent() SlackEventRepository
 	Close() error
@@ -82,6 +84,38 @@ type NotionCredentialRepository interface {
 	// expected. It reports whether a credential was deleted; a missing or
 	// replaced credential is not an error.
 	DeleteIfUnchanged(ctx context.Context, key model.UserKey, expected *model.NotionCredential) (bool, error)
+}
+
+// GitHubCredentialRepository keeps at most one connection per user and
+// connects each GitHub account to at most one user. The owner of a GitHub
+// account is recorded outside the user's document; it is written and deleted
+// together with the connection and never returned.
+type GitHubCredentialRepository interface {
+	// Create stores cred and makes key the owner of its GitHub account,
+	// atomically. It fails with ErrAlreadyExists when key already has a
+	// connection, and with ErrGitHubAccountInUse when another user owns the
+	// GitHub account.
+	Create(ctx context.Context, key model.UserKey, cred *model.GitHubCredential) error
+	Get(ctx context.Context, key model.UserKey) (*model.GitHubCredential, error)
+	// AccountInUse reports whether a user other than key owns the GitHub
+	// account.
+	AccountInUse(ctx context.Context, key model.UserKey, id model.GitHubUserID) (bool, error)
+	// AcquireRefreshLease sets the refresh lease to leaseID until expiresAt
+	// when no lease is held at now. It returns the connection as stored after
+	// the call and whether leaseID holds the lease. It fails with ErrNotFound
+	// when key has no connection.
+	AcquireRefreshLease(ctx context.Context, key model.UserKey, leaseID string, now, expiresAt time.Time) (*model.GitHubCredential, bool, error)
+	// ReplaceIfLeaseHeld writes cred only while the stored connection has the
+	// same ConnectionID and its lease is leaseID. cred must carry no lease.
+	ReplaceIfLeaseHeld(ctx context.Context, key model.UserKey, leaseID string, cred *model.GitHubCredential) (bool, error)
+	// ReleaseRefreshLease clears the lease when leaseID holds it and does
+	// nothing otherwise. A missing connection is not an error.
+	ReleaseRefreshLease(ctx context.Context, key model.UserKey, leaseID string) error
+	// DeleteIfConnection deletes the connection, and the ownership of its
+	// GitHub account, only while its ConnectionID is connectionID. It reports
+	// whether a connection was deleted; a missing or replaced connection is
+	// not an error.
+	DeleteIfConnection(ctx context.Context, key model.UserKey, connectionID string) (bool, error)
 }
 
 type SessionRepository interface {

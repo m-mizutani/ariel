@@ -13,13 +13,15 @@ GraphQL.
   no repository or external API calls.
 - `pkg/usecase/` — business operations. `SlackUserAccess` is the only component
   that reads, writes, encrypts, or decrypts Slack user tokens,
-  `GoogleWorkspaceAccess` is the only one for Google refresh tokens, and
+  `GoogleWorkspaceAccess` is the only one for Google refresh tokens,
   `NotionAccess` is the only one for Notion tokens (it also runs the Notion
-  reads, refreshing the tokens when Notion rejects them).
+  reads, refreshing the tokens when Notion rejects them), and
+  `GitHubUserAccess` is the only one for GitHub user and refresh tokens (it
+  refreshes them before they expire, one instance at a time through a lease).
 - `pkg/domain/` — models (`model/`, also the Firestore document format) and
   interfaces (`interfaces/`). No I/O.
 - `pkg/repository/{firestore,memory}/` — persistence.
-- `pkg/adapter/{slack,google,notion,kms}/` — thin wrappers that implement
+- `pkg/adapter/{slack,google,notion,github,kms}/` — thin wrappers that implement
   `domain/interfaces` over an external API. No business decisions.
   `pkg/adapter/localcipher/` replaces KMS only with `--no-auth` and no KMS key.
 - Every API route is under `/api/v1` (`apiV1Path` in
@@ -40,13 +42,16 @@ Slack Events API handlers acknowledge within three seconds and run the rest in
   connected to. It is written and deleted in the same transaction as that
   user's Google credential and is never returned to callers; only
   `AccountInUse` reads whether another user owns it. `notionAccounts/{NotionUserID}`
-  does the same for Notion users and Notion credentials.
+  does the same for Notion users and Notion credentials, and
+  `githubAccounts/{GitHubUserID}` for GitHub accounts and GitHub credentials.
 - The user key of a request comes only from a verified Slack event or a verified
   web session. A user's token is used only for that same user's requests.
 - The KMS additional authenticated data of a token is
   `ariel:slack-user-token:v1:{TeamID}:{UserID}` for Slack,
-  `ariel:google-refresh-token:v1:{TeamID}:{UserID}` for Google, and
-  `ariel:notion-token:v1:{TeamID}:{UserID}` for Notion. Changing any of them
+  `ariel:google-refresh-token:v1:{TeamID}:{UserID}` for Google,
+  `ariel:notion-token:v1:{TeamID}:{UserID}` for Notion, and
+  `ariel:github-access-token:v1:{TeamID}:{UserID}` /
+  `ariel:github-refresh-token:v1:{TeamID}:{UserID}` for GitHub. Changing any of them
   makes stored tokens undecryptable; add a new version instead.
 
 ## Conventions
@@ -102,11 +107,12 @@ UI's use cases end to end, not only unit tests.
   the failure paths the page shows (see `e2e/tests/login.spec.ts` for sign-in:
   redirect when signed out, sign-in, reload, sign-out, forged callback,
   cancelled sign-in).
-- Exception: a successful Google Workspace connection and the states that
-  need one (connected, disconnecting a connected account) require Google and
-  are covered by unit tests and screenshots instead. E2E still covers
-  everything up to the redirect to Google and every callback that needs no
-  real authorization code (`e2e/tests/google-workspace.spec.ts`).
+- Exception: a successful Google Workspace or GitHub connection and the states
+  that need one (connected, disconnecting a connected account) require Google
+  or GitHub and are covered by unit tests and screenshots instead. E2E still
+  covers everything up to the redirect to the provider and every callback that
+  needs no real authorization code (`e2e/tests/google-workspace.spec.ts`,
+  `e2e/tests/github.spec.ts`).
 - Notion runs end to end: Playwright also starts `e2e/fake-notion.mjs`, and
   the server reaches it through `--notion-api-url` (accepted only with
   `--no-auth`). Its `/__control` endpoint chooses the next authorization
