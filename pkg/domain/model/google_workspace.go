@@ -46,6 +46,21 @@ type GoogleWorkspaceCredential struct {
 	UpdatedAt    time.Time
 }
 
+// GoogleWorkspaceAccount records which user a Google account is connected to,
+// so that one Google account is never connected to two users: Google revokes
+// a grant per Google account and project, and one user's disconnection would
+// end the other user's access.
+type GoogleWorkspaceAccount struct {
+	Subject   string
+	TeamID    SlackTeamID
+	UserID    SlackUserID
+	CreatedAt time.Time
+}
+
+func (a *GoogleWorkspaceAccount) Key() UserKey {
+	return UserKey{TeamID: a.TeamID, UserID: a.UserID}
+}
+
 func (c *GoogleWorkspaceCredential) Key() UserKey {
 	return UserKey{TeamID: c.TeamID, UserID: c.UserID}
 }

@@ -24,6 +24,8 @@ type googleCallback struct {
 type fakeGoogleWorkspaceUseCase struct {
 	mu            sync.Mutex
 	states        []string
+	authorizeKeys []model.UserKey
+	authorizeErr  error
 	callbacks     []googleCallback
 	callbackErr   error
 	status        *usecase.GoogleWorkspaceStatus
@@ -39,11 +41,15 @@ func newFakeGoogleWorkspaceUseCase() *fakeGoogleWorkspaceUseCase {
 	}
 }
 
-func (f *fakeGoogleWorkspaceUseCase) AuthorizeURL(state string) string {
+func (f *fakeGoogleWorkspaceUseCase) AuthorizeURL(_ context.Context, key model.UserKey, state string) (string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.authorizeKeys = append(f.authorizeKeys, key)
+	if f.authorizeErr != nil {
+		return "", f.authorizeErr
+	}
 	f.states = append(f.states, state)
-	return "https://accounts.google.com/o/oauth2/v2/auth?client_id=x&state=" + state
+	return "https://accounts.google.com/o/oauth2/v2/auth?client_id=x&state=" + state, nil
 }
 
 func (f *fakeGoogleWorkspaceUseCase) HandleCallback(_ context.Context, key model.UserKey, code string) error {
@@ -189,6 +195,31 @@ func TestGoogleConnect(t *testing.T) {
 		gt.Bool(t, cookie.HttpOnly).True()
 		gt.Bool(t, cookie.Secure).True()
 		gt.Value(t, cookie.SameSite).Equal(http.SameSiteLaxMode)
+		gt.Value(t, googleUC.authorizeKeys).Equal([]model.UserKey{sessionKey})
+	})
+
+	t.Run("already connected", func(t *testing.T) {
+		authUC := newFakeAuthUseCase()
+		googleUC := newFakeGoogleWorkspaceUseCase()
+		googleUC.authorizeErr = goerr.Wrap(usecase.ErrGoogleWorkspaceAlreadyConnected, "connected")
+		srv := newGoogleTestServer(t, authUC, googleUC)
+
+		resp := serve(srv, withSession(httptest.NewRequest(http.MethodGet, googleBase+"/connect", nil), authUC))
+		gt.Number(t, resp.StatusCode).Equal(http.StatusFound)
+		gt.String(t, resp.Header.Get("Location")).Equal("/settings")
+		gt.Value(t, findCookie(resp, "ariel_google_oauth_state")).Nil()
+	})
+
+	t.Run("usecase error", func(t *testing.T) {
+		authUC := newFakeAuthUseCase()
+		googleUC := newFakeGoogleWorkspaceUseCase()
+		googleUC.authorizeErr = errors.New("firestore unavailable")
+		srv := newGoogleTestServer(t, authUC, googleUC)
+
+		resp := serve(srv, withSession(httptest.NewRequest(http.MethodGet, googleBase+"/connect", nil), authUC))
+		gt.Number(t, resp.StatusCode).Equal(http.StatusInternalServerError)
+		gt.Value(t, decodeJSON(t, resp.Body)).Equal(map[string]any{"error": "internal_error"})
+		gt.Value(t, findCookie(resp, "ariel_google_oauth_state")).Nil()
 	})
 
 	t.Run("without session", func(t *testing.T) {
@@ -292,6 +323,13 @@ func TestGoogleCallback_Failures(t *testing.T) {
 			wantResult:  "missing_scope",
 			wantCalled:  true,
 		},
+		"google account connected to another user": {
+			query:       "code=c&state=s1",
+			stateCookie: func(id string) string { return "s1." + id },
+			callbackErr: goerr.Wrap(usecase.ErrGoogleAccountInUse, "in use"),
+			wantResult:  "account_in_use",
+			wantCalled:  true,
+		},
 		"connection rejected": {
 			query:       "code=c&state=s1",
 			stateCookie: func(id string) string { return "s1." + id },
@@ -328,6 +366,20 @@ func TestGoogleCallback_Failures(t *testing.T) {
 			gt.Bool(t, state.MaxAge < 0).True()
 		})
 	}
+}
+
+// A user who is already connected returns to the settings page without a
+// result, and nothing changes.
+func TestGoogleCallback_AlreadyConnected(t *testing.T) {
+	authUC := newFakeAuthUseCase()
+	googleUC := newFakeGoogleWorkspaceUseCase()
+	googleUC.callbackErr = goerr.Wrap(usecase.ErrGoogleWorkspaceAlreadyConnected, "connected")
+	srv := newGoogleTestServer(t, authUC, googleUC)
+
+	resp := serve(srv, googleCallbackRequest(authUC, "code=c1&state=s1", "s1."+string(authUC.session.ID)))
+	gt.Number(t, resp.StatusCode).Equal(http.StatusFound)
+	gt.String(t, resp.Header.Get("Location")).Equal("/settings")
+	gt.Value(t, googleUC.callbacks).Equal([]googleCallback{{Key: sessionKey, Code: "c1"}})
 }
 
 func TestGoogleCallback_WithoutSession(t *testing.T) {

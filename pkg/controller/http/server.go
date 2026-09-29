@@ -32,7 +32,7 @@ type slackEventUseCase interface {
 }
 
 type googleWorkspaceUseCase interface {
-	AuthorizeURL(state string) string
+	AuthorizeURL(ctx context.Context, key model.UserKey, state string) (string, error)
 	HandleCallback(ctx context.Context, key model.UserKey, code string) error
 	Status(ctx context.Context, key model.UserKey) (*usecase.GoogleWorkspaceStatus, error)
 	Disconnect(ctx context.Context, key model.UserKey) error

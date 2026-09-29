@@ -57,24 +57,38 @@ func TestGoogleWorkspaceAccess_StoreAndToken(t *testing.T) {
 	gt.Value(t, cipher.decryptions[0].AAD).Equal(usecase.GoogleTokenAADForTest(testKey))
 }
 
-func TestGoogleWorkspaceAccess_StoreKeepsCreatedAt(t *testing.T) {
+var bobIdentity = &model.GoogleIdentity{Subject: "999", Email: "bob@example.com"}
+
+func TestGoogleWorkspaceAccess_StoreRefusesSecondCredential(t *testing.T) {
 	ctx := context.Background()
 	repo := memory.New()
 	access := usecase.NewGoogleWorkspaceAccess(repo, &fakeCipher{})
 
-	first := time.Now().Add(-time.Hour).UTC()
-	second := time.Now().UTC()
-	gt.NoError(t, access.Store(ctx, testKey, "refresh-first", googleScopes, aliceIdentity, first)).Required()
-	bob := &model.GoogleIdentity{Subject: "999", Email: "bob@example.com"}
-	gt.NoError(t, access.Store(ctx, testKey, "refresh-second", googleScopes, bob, second)).Required()
+	gt.NoError(t, access.Store(ctx, testKey, "refresh-first", googleScopes, aliceIdentity, time.Now())).Required()
+	err := access.Store(ctx, testKey, "refresh-second", googleScopes, bobIdentity, time.Now())
+	gt.Error(t, err).Is(interfaces.ErrAlreadyExists)
 
 	cred, err := repo.GoogleWorkspaceCredential().Get(ctx, testKey)
 	gt.NoError(t, err).Required()
-	gt.Bool(t, cred.CreatedAt.Equal(first)).True()
-	gt.Bool(t, cred.UpdatedAt.Equal(second)).True()
-	gt.Bool(t, bytes.HasSuffix(cred.RefreshToken.Ciphertext, []byte("refresh-second"))).True()
-	gt.String(t, cred.Email).Equal("bob@example.com")
-	gt.String(t, cred.Subject).Equal("999")
+	gt.Bool(t, bytes.HasSuffix(cred.RefreshToken.Ciphertext, []byte("refresh-first"))).True()
+	gt.String(t, cred.Email).Equal("alice@example.com")
+}
+
+func TestGoogleWorkspaceAccess_AccountOfAnotherUser(t *testing.T) {
+	ctx := context.Background()
+	repo := memory.New()
+	access := usecase.NewGoogleWorkspaceAccess(repo, &fakeCipher{})
+	other := model.UserKey{TeamID: testKey.TeamID, UserID: "U9999ZZZZ"}
+	gt.NoError(t, access.Store(ctx, other, "refresh-other", googleScopes, aliceIdentity, time.Now())).Required()
+
+	inUse, err := access.AccountInUse(ctx, testKey, aliceIdentity.Subject)
+	gt.NoError(t, err).Required()
+	gt.Bool(t, inUse).True()
+
+	err = access.Store(ctx, testKey, "refresh-mine", googleScopes, aliceIdentity, time.Now())
+	gt.Error(t, err).Is(interfaces.ErrGoogleAccountInUse)
+	_, err = repo.GoogleWorkspaceCredential().Get(ctx, testKey)
+	gt.Error(t, err).Is(interfaces.ErrNotFound)
 }
 
 func TestGoogleWorkspaceAccess_StoreEncryptError(t *testing.T) {
@@ -119,14 +133,15 @@ func TestGoogleWorkspaceAccess_CiphertextOfAnotherUserCannotBeDecrypted(t *testi
 	other := model.UserKey{TeamID: testKey.TeamID, UserID: "U9999ZZZZ"}
 	copied := *ownerCred
 	copied.UserID = other.UserID
-	gt.NoError(t, repo.GoogleWorkspaceCredential().Put(ctx, other, &copied)).Required()
+	copied.Subject = "another-google-account"
+	gt.NoError(t, repo.GoogleWorkspaceCredential().Create(ctx, other, &copied)).Required()
 
 	_, err = access.Token(ctx, other)
 	gt.Value(t, err).NotNil()
 }
 
-// A disconnect that read the old token must not delete the credential a
-// connection stored after that read.
+// A disconnection that read the old token and arrives after the user
+// disconnected and connected again must not delete the new credential.
 func TestGoogleWorkspaceAccess_DeleteKeepsNewerCredential(t *testing.T) {
 	ctx := context.Background()
 	repo := memory.New()
@@ -135,6 +150,7 @@ func TestGoogleWorkspaceAccess_DeleteKeepsNewerCredential(t *testing.T) {
 	gt.NoError(t, access.Store(ctx, testKey, "refresh-old", googleScopes, aliceIdentity, time.Now())).Required()
 	oldToken, err := access.Token(ctx, testKey)
 	gt.NoError(t, err).Required()
+	gt.NoError(t, access.Delete(ctx, oldToken)).Required()
 
 	gt.NoError(t, access.Store(ctx, testKey, "refresh-new", googleScopes, aliceIdentity, time.Now())).Required()
 	gt.NoError(t, access.Delete(ctx, oldToken)).Required()
@@ -193,7 +209,8 @@ func TestGoogleWorkspaceAccess_WithCloudKMS(t *testing.T) {
 	other := model.UserKey{TeamID: testKey.TeamID, UserID: "U9999ZZZZ"}
 	copied := *cred
 	copied.UserID = other.UserID
-	gt.NoError(t, repo.GoogleWorkspaceCredential().Put(ctx, other, &copied)).Required()
+	copied.Subject = "another-google-account"
+	gt.NoError(t, repo.GoogleWorkspaceCredential().Create(ctx, other, &copied)).Required()
 	_, err = access.Token(ctx, other)
 	gt.Value(t, err).NotNil()
 }

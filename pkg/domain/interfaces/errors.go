@@ -22,4 +22,8 @@ var (
 	// ErrGoogleTokenInvalid is returned when Google rejects a token as invalid
 	// (already revoked, expired, or unknown).
 	ErrGoogleTokenInvalid = errors.New("google token is invalid")
+
+	// ErrGoogleAccountInUse is returned when a Google account is already
+	// connected to another user.
+	ErrGoogleAccountInUse = errors.New("google account is connected to another user")
 )

@@ -61,14 +61,42 @@ func NewGoogleWorkspaceUseCase(oauth interfaces.GoogleOAuth, access *GoogleWorks
 	return &GoogleWorkspaceUseCase{oauth: oauth, access: access, cfg: cfg, now: time.Now}
 }
 
-func (uc *GoogleWorkspaceUseCase) AuthorizeURL(state string) string {
-	return uc.oauth.AuthorizeURL(state, uc.cfg.callbackURL(), googleWorkspaceScopes)
+// AuthorizeURL returns Google's authorization URL for key. A user who already
+// has a connected account gets ErrGoogleWorkspaceAlreadyConnected: the account
+// has to be disconnected before another connection is made.
+func (uc *GoogleWorkspaceUseCase) AuthorizeURL(ctx context.Context, key model.UserKey, state string) (string, error) {
+	if err := uc.ensureNotConnected(ctx, key); err != nil {
+		return "", err
+	}
+	return uc.oauth.AuthorizeURL(state, uc.cfg.callbackURL(), googleWorkspaceScopes), nil
+}
+
+func (uc *GoogleWorkspaceUseCase) ensureNotConnected(ctx context.Context, key model.UserKey) error {
+	status, err := uc.access.Connection(ctx, key)
+	if err != nil {
+		return err
+	}
+	if status.Connected {
+		return goerr.Wrap(ErrGoogleWorkspaceAlreadyConnected, "google workspace is already connected",
+			goerr.V("team_id", key.TeamID), goerr.V("user_id", key.UserID))
+	}
+	return nil
 }
 
 // HandleCallback exchanges code, checks the grant, and stores the refresh
-// token for key. A grant that is rejected after the exchange is revoked at
-// Google so no unused grant remains, and nothing is stored.
+// token for key.
+//
+// Google revokes a grant per Google account, not per token, so a rejected
+// grant is revoked only once its account is known not to be connected to
+// anyone: revoking it otherwise would end that connection. The account
+// already connected to key is protected by refusing the callback before the
+// exchange; an account connected to another user is protected by
+// AccountInUse. When the account cannot be identified, nothing is revoked.
 func (uc *GoogleWorkspaceUseCase) HandleCallback(ctx context.Context, key model.UserKey, code string) error {
+	if err := uc.ensureNotConnected(ctx, key); err != nil {
+		return err
+	}
+
 	res, err := uc.oauth.ExchangeCode(ctx, code, uc.cfg.callbackURL())
 	if err != nil {
 		return goerr.Wrap(err, "failed to exchange google oauth code",
@@ -78,6 +106,23 @@ func (uc *GoogleWorkspaceUseCase) HandleCallback(ctx context.Context, key model.
 	vals := []goerr.Option{
 		goerr.V("team_id", key.TeamID), goerr.V("user_id", key.UserID),
 		goerr.V("granted_scopes", res.Scopes),
+	}
+
+	identity, err := uc.oauth.FetchIdentity(ctx, res.AccessToken)
+	if err != nil {
+		return goerr.Wrap(err, "failed to fetch google account identity", vals...)
+	}
+	if identity.Subject == "" || identity.Email == "" {
+		return goerr.Wrap(ErrGoogleConnectRejected, "google account identity is incomplete",
+			append(vals, goerr.V("has_subject", identity.Subject != ""), goerr.V("has_email", identity.Email != ""))...)
+	}
+
+	inUse, err := uc.access.AccountInUse(ctx, key, identity.Subject)
+	if err != nil {
+		return goerr.Wrap(err, "failed to check the google account", vals...)
+	}
+	if inUse {
+		return goerr.Wrap(ErrGoogleAccountInUse, "google account is connected to another user", vals...)
 	}
 
 	var missing []string
@@ -94,25 +139,26 @@ func (uc *GoogleWorkspaceUseCase) HandleCallback(ctx context.Context, key model.
 		return uc.reject(ctx, res, goerr.Wrap(ErrGoogleConnectRejected, "google returned no refresh token", vals...))
 	}
 
-	identity, err := uc.oauth.FetchIdentity(ctx, res.AccessToken)
-	if err != nil {
-		return uc.reject(ctx, res, goerr.Wrap(err, "failed to fetch google account identity", vals...))
-	}
-	if identity.Subject == "" || identity.Email == "" {
-		return uc.reject(ctx, res, goerr.Wrap(ErrGoogleConnectRejected, "google account identity is incomplete",
-			append(vals, goerr.V("has_subject", identity.Subject != ""), goerr.V("has_email", identity.Email != ""))...))
-	}
-
-	if err := uc.access.Store(ctx, key, res.RefreshToken, res.Scopes, identity, uc.now()); err != nil {
+	err = uc.access.Store(ctx, key, res.RefreshToken, res.Scopes, identity, uc.now())
+	switch {
+	case err == nil:
+		return nil
+	// Another request connected an account in the meantime; the grant may
+	// belong to that connection, so it is not revoked.
+	case errors.Is(err, interfaces.ErrAlreadyExists):
+		return goerr.Wrap(ErrGoogleWorkspaceAlreadyConnected, "google workspace was connected by another request", vals...)
+	case errors.Is(err, interfaces.ErrGoogleAccountInUse):
+		return goerr.Wrap(ErrGoogleAccountInUse, "google account was connected to another user by another request", vals...)
+	default:
 		return uc.reject(ctx, res, goerr.Wrap(err, "failed to store google refresh token", vals...))
 	}
-	return nil
 }
 
 // reject revokes the grant res came with and returns cause. Revoking the
 // refresh token also ends the access token; without one, the access token is
 // revoked. A failed revocation is recorded here because cause is what the
-// caller needs.
+// caller needs. Callers must have made sure that the grant's Google account is
+// not connected to any user.
 func (uc *GoogleWorkspaceUseCase) reject(ctx context.Context, res *model.GoogleOAuthResult, cause error) error {
 	token := string(res.RefreshToken)
 	if token == "" {

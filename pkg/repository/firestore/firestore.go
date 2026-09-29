@@ -16,8 +16,11 @@ const (
 	credentialsCollection          = "credentials"
 	slackCredentialDocID           = "slack"
 	googleWorkspaceCredentialDocID = "google_workspace"
-	sessionsCollection             = "sessions"
-	slackEventsCollection          = "slackEvents"
+	// googleWorkspaceAccountsCollection is keyed by the Google account and
+	// names the only user it is connected to.
+	googleWorkspaceAccountsCollection = "googleWorkspaceAccounts"
+	sessionsCollection                = "sessions"
+	slackEventsCollection             = "slackEvents"
 )
 
 type Firestore struct {

@@ -26,4 +26,12 @@ var (
 	// ErrGoogleWorkspaceNotConnected means no Google refresh token is stored
 	// for the user.
 	ErrGoogleWorkspaceNotConnected = errors.New("google workspace is not connected")
+
+	// ErrGoogleAccountInUse means the Google account the user authorized is
+	// already connected to another user.
+	ErrGoogleAccountInUse = errors.New("google account is connected to another user")
+
+	// ErrGoogleWorkspaceAlreadyConnected means the user already has a
+	// connected Google account; a new connection is ignored.
+	ErrGoogleWorkspaceAlreadyConnected = errors.New("google workspace is already connected")
 )

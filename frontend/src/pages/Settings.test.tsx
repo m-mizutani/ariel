@@ -311,6 +311,11 @@ describe('Settings: Google Workspace', () => {
       'alert',
       'Google Workspace was not connected because you did not allow every requested permission. Connect again and allow all of them.',
     ],
+    [
+      'account_in_use',
+      'alert',
+      'Google Workspace was not connected because this Google account is already connected to another Ariel user. Connect a different Google account.',
+    ],
     ['failed', 'alert', 'Could not connect Google Workspace. Try again.'],
   ])('shows the result %s and removes it from the URL', async (result, role, text) => {
     stubApi(me(true), result === 'connected' ? googleConnected : googleNotConnected)

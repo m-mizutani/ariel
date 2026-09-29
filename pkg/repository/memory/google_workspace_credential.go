@@ -15,10 +15,15 @@ import (
 type googleWorkspaceCredentialRepository struct {
 	mu    sync.Mutex
 	creds map[model.UserKey]model.GoogleWorkspaceCredential
+	// owners maps a Google account (subject) to the user it is connected to.
+	owners map[string]model.UserKey
 }
 
 func newGoogleWorkspaceCredentialRepository() *googleWorkspaceCredentialRepository {
-	return &googleWorkspaceCredentialRepository{creds: make(map[model.UserKey]model.GoogleWorkspaceCredential)}
+	return &googleWorkspaceCredentialRepository{
+		creds:  make(map[model.UserKey]model.GoogleWorkspaceCredential),
+		owners: make(map[string]model.UserKey),
+	}
 }
 
 func copyGoogleCredential(c model.GoogleWorkspaceCredential) model.GoogleWorkspaceCredential {
@@ -27,7 +32,7 @@ func copyGoogleCredential(c model.GoogleWorkspaceCredential) model.GoogleWorkspa
 	return c
 }
 
-func (r *googleWorkspaceCredentialRepository) Put(_ context.Context, key model.UserKey, cred *model.GoogleWorkspaceCredential) error {
+func (r *googleWorkspaceCredentialRepository) Create(_ context.Context, key model.UserKey, cred *model.GoogleWorkspaceCredential) error {
 	if err := key.Validate(); err != nil {
 		return goerr.Wrap(err, "invalid user key")
 	}
@@ -40,7 +45,16 @@ func (r *googleWorkspaceCredentialRepository) Put(_ context.Context, key model.U
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if _, ok := r.creds[key]; ok {
+		return goerr.Wrap(interfaces.ErrAlreadyExists, "user already has a google workspace credential",
+			goerr.V("team_id", key.TeamID), goerr.V("user_id", key.UserID))
+	}
+	if owner, ok := r.owners[cred.Subject]; ok && owner != key {
+		return goerr.Wrap(interfaces.ErrGoogleAccountInUse, "google account is connected to another user",
+			goerr.V("team_id", key.TeamID), goerr.V("user_id", key.UserID))
+	}
 	r.creds[key] = copyGoogleCredential(*cred)
+	r.owners[cred.Subject] = key
 	return nil
 }
 
@@ -59,6 +73,19 @@ func (r *googleWorkspaceCredentialRepository) Get(_ context.Context, key model.U
 	return &out, nil
 }
 
+func (r *googleWorkspaceCredentialRepository) AccountInUse(_ context.Context, key model.UserKey, subject string) (bool, error) {
+	if err := key.Validate(); err != nil {
+		return false, goerr.Wrap(err, "invalid user key")
+	}
+	if subject == "" {
+		return false, goerr.New("empty google account subject")
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	owner, ok := r.owners[subject]
+	return ok && owner != key, nil
+}
+
 func (r *googleWorkspaceCredentialRepository) DeleteIfUnchanged(_ context.Context, key model.UserKey, expected *model.GoogleWorkspaceCredential) (bool, error) {
 	if err := key.Validate(); err != nil {
 		return false, goerr.Wrap(err, "invalid user key")
@@ -70,5 +97,8 @@ func (r *googleWorkspaceCredentialRepository) DeleteIfUnchanged(_ context.Contex
 		return false, nil
 	}
 	delete(r.creds, key)
+	if r.owners[current.Subject] == key {
+		delete(r.owners, current.Subject)
+	}
 	return true, nil
 }

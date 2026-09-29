@@ -30,6 +30,10 @@ Slack Events API handlers acknowledge within three seconds and run the rest in
   those paths only from a `model.UserKey`.
 - Repository methods for user data take the user key; do not add methods that
   return more than one user's data (lists, collection-group queries).
+- `googleWorkspaceAccounts/{Subject}` records the only user a Google account is
+  connected to. It is written and deleted in the same transaction as that
+  user's Google credential and is never returned to callers; only
+  `AccountInUse` reads whether another user owns it.
 - The user key of a request comes only from a verified Slack event or a verified
   web session. A user's token is used only for that same user's requests.
 - The KMS additional authenticated data of a token is
@@ -90,6 +94,11 @@ UI's use cases end to end, not only unit tests.
   the failure paths the page shows (see `e2e/tests/login.spec.ts` for sign-in:
   redirect when signed out, sign-in, reload, sign-out, forged callback,
   cancelled sign-in).
+- Exception: a successful Google Workspace connection and the states that
+  need one (connected, disconnecting a connected account) require Google and
+  are covered by unit tests and screenshots instead. E2E still covers
+  everything up to the redirect to Google and every callback that needs no
+  real authorization code (`e2e/tests/google-workspace.spec.ts`).
 - Run them with `task e2e` (builds the binary, then `pnpm e2e`). CI runs the
   `e2e` job in `.github/workflows/test.yml`; it must pass.
 - `--no-auth` makes every sign-in the given user without Slack. It is accepted

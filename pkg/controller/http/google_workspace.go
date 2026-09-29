@@ -24,6 +24,7 @@ const (
 	googleResultConnected    = "connected"
 	googleResultAccessDenied = "access_denied"
 	googleResultMissingScope = "missing_scope"
+	googleResultAccountInUse = "account_in_use"
 	googleResultFailed       = "failed"
 
 	googleErrorAccessDenied = "access_denied"
@@ -37,6 +38,12 @@ type googleStatusResponse struct {
 
 func redirectGoogleResult(w http.ResponseWriter, r *http.Request, result string) {
 	http.Redirect(w, r, "/settings?"+googleResultParam+"="+result, http.StatusFound)
+}
+
+// redirectToSettings returns to the settings page without a result: a user who
+// already has a connected account is sent back and nothing changes.
+func redirectToSettings(w http.ResponseWriter, r *http.Request) {
+	http.Redirect(w, r, "/settings", http.StatusFound)
 }
 
 func sessionFromRequest(w http.ResponseWriter, r *http.Request) (*auth.Session, bool) {
@@ -89,8 +96,20 @@ func (s *Server) googleConnectHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	authorizeURL, err := s.googleUC.AuthorizeURL(ctx, session.Key(), state)
+	if err != nil {
+		if errors.Is(err, usecase.ErrGoogleWorkspaceAlreadyConnected) {
+			errutil.Handle(ctx, goerr.Wrap(err, "connection ignored", goerr.T(errutil.TagBenign)), "google workspace is already connected")
+			redirectToSettings(w, r)
+			return
+		}
+		errutil.Handle(ctx, err, "failed to start google workspace connection")
+		writeError(ctx, w, http.StatusInternalServerError, errCodeInternal)
+		return
+	}
+
 	s.setCookie(w, googleStateCookieName, state+"."+string(session.ID), googleStateCookiePath, stateCookieMaxAge, time.Time{})
-	http.Redirect(w, r, s.googleUC.AuthorizeURL(state), http.StatusFound)
+	http.Redirect(w, r, authorizeURL, http.StatusFound)
 }
 
 func (s *Server) googleCallbackHandler(w http.ResponseWriter, r *http.Request) {
@@ -131,16 +150,23 @@ func (s *Server) googleCallbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.googleUC.HandleCallback(ctx, session.Key(), code); err != nil {
+	err := s.googleUC.HandleCallback(ctx, session.Key(), code)
+	switch {
+	case err == nil:
+		redirectGoogleResult(w, r, googleResultConnected)
+	case errors.Is(err, usecase.ErrGoogleWorkspaceAlreadyConnected):
+		errutil.Handle(ctx, goerr.Wrap(err, "connection ignored", goerr.T(errutil.TagBenign)), "google workspace is already connected")
+		redirectToSettings(w, r)
+	case errors.Is(err, usecase.ErrGoogleScopeNotGranted):
 		errutil.Handle(ctx, err, "google workspace connection failed")
-		if errors.Is(err, usecase.ErrGoogleScopeNotGranted) {
-			redirectGoogleResult(w, r, googleResultMissingScope)
-			return
-		}
+		redirectGoogleResult(w, r, googleResultMissingScope)
+	case errors.Is(err, usecase.ErrGoogleAccountInUse):
+		errutil.Handle(ctx, err, "google workspace connection failed")
+		redirectGoogleResult(w, r, googleResultAccountInUse)
+	default:
+		errutil.Handle(ctx, err, "google workspace connection failed")
 		redirectGoogleResult(w, r, googleResultFailed)
-		return
 	}
-	redirectGoogleResult(w, r, googleResultConnected)
 }
 
 // verifyGoogleState checks the state against the cookie set by

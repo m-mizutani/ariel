@@ -45,16 +45,21 @@ its accounts.
   grant at Google, stores nothing, and tells the user to connect again.
 - Ariel stores the connected account as authorized in that sign-in; it does not
   compare it with the Slack account.
+- One Google account can be connected to only one Ariel user. Google revokes a
+  grant per Google account and Cloud project, not per token, so if two users
+  shared one Google account, one user's disconnection would end the other's
+  access. A user who authorizes an account that is already connected to someone
+  else is told so; Ariel stores nothing and leaves that account's grant as it
+  is.
+- A user who is already connected cannot connect a second account: the
+  connection is ignored and the settings page stays as it is. Disconnect first
+  to switch accounts.
 - Ariel stores only the refresh token, encrypted with Cloud KMS, together with
   the granted scopes and the account's address. Access tokens are not stored.
 - **Disconnect Google Workspace** on the settings page revokes the grant at
   Google and deletes the stored token. Signing out of Ariel does not disconnect
   Google Workspace. A user can also remove Ariel from the third-party apps
   list of their Google account.
-- Google revokes a grant per Google account and Cloud project, not per token.
-  Disconnecting therefore ends Ariel's access to that Google account for every
-  Ariel user who connected the same account (for example a shared mailbox);
-  their settings pages keep showing **Connected**.
 - Google stops accepting a refresh token when the user revokes access, when it
   has not been used for six months, when the user changes their password (the
   Gmail scope is included), or when an administrator restricts one of the
@@ -140,10 +145,14 @@ No composite index is needed. Documents are laid out as follows:
 | `teams/{TeamID}/users/{UserID}` | User (display name, timestamps) |
 | `teams/{TeamID}/users/{UserID}/credentials/slack` | Encrypted Slack user token and granted scopes |
 | `teams/{TeamID}/users/{UserID}/credentials/google_workspace` | Encrypted Google refresh token, granted scopes, and the connected Google account (ID and address) |
+| `googleWorkspaceAccounts/{GoogleAccountID}` | The only Ariel user a Google account is connected to. Created and deleted together with the credential above |
 | `sessions/{SessionID}` | Web session (hash of the session secret, owner, expiry) |
 | `slackEvents/{EventID}` | Record of a processed Slack event, used to drop redelivered events (kept 24 hours) |
 
 Everything that belongs to a user is stored under that user's document path.
+`googleWorkspaceAccounts` is the exception: it is looked up by the Google
+account to keep one Google account from being connected to two users, and it
+holds only the owner's Slack IDs.
 
 ## 4. Set up the Google Workspace integration (optional)
 

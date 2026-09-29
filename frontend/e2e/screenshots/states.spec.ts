@@ -245,6 +245,7 @@ for (const [result, name, text] of [
   ['connected', 'settings-google-notice-connected', 'Google Workspace is connected.'],
   ['access_denied', 'settings-google-notice-access-denied', 'you cancelled the request on Google'],
   ['missing_scope', 'settings-google-notice-missing-scope', 'you did not allow every requested permission'],
+  ['account_in_use', 'settings-google-notice-account-in-use', 'already connected to another Ariel user'],
   ['failed', 'settings-google-notice-failed', 'Could not connect Google Workspace.'],
 ] as const) {
   test(`settings: Google Workspace connection result ${result}`, async ({ page }) => {

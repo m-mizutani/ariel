@@ -52,6 +52,11 @@ const googleNotices = {
     className: 'error',
     role: 'alert',
   },
+  account_in_use: {
+    text: 'Google Workspace was not connected because this Google account is already connected to another Ariel user. Connect a different Google account.',
+    className: 'error',
+    role: 'alert',
+  },
   failed: { text: 'Could not connect Google Workspace. Try again.', className: 'error', role: 'alert' },
 } as const
 

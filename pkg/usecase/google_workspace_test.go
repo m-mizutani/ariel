@@ -129,7 +129,8 @@ func (f *googleFixture) assertNothingStored(t *testing.T) {
 func TestGoogleWorkspaceUseCase_AuthorizeURL(t *testing.T) {
 	f := newGoogleFixture()
 
-	got := f.uc.AuthorizeURL("s1")
+	got, err := f.uc.AuthorizeURL(context.Background(), testKey, "s1")
+	gt.NoError(t, err).Required()
 	gt.String(t, got).Equal("https://accounts.google.com/o/oauth2/v2/auth?state=s1")
 	gt.Array(t, f.oauth.authorizes).Length(1).Required()
 	gt.Value(t, f.oauth.authorizes[0]).Equal(authorizeCall{
@@ -166,12 +167,27 @@ func TestGoogleWorkspaceUseCase_HandleCallback(t *testing.T) {
 	gt.Bool(t, cred.UpdatedAt.Equal(f.now)).True()
 }
 
+func TestGoogleWorkspaceUseCase_AuthorizeURLWhenConnected(t *testing.T) {
+	ctx := context.Background()
+	f := newGoogleFixture()
+	gt.NoError(t, f.uc.HandleCallback(ctx, testKey, "code-1")).Required()
+
+	_, err := f.uc.AuthorizeURL(ctx, testKey, "s2")
+	gt.Error(t, err).Is(usecase.ErrGoogleWorkspaceAlreadyConnected)
+	gt.Array(t, f.oauth.authorizes).Length(0)
+}
+
+var otherKey = model.UserKey{TeamID: testKey.TeamID, UserID: "U9999ZZZZ"}
+
 func TestGoogleWorkspaceUseCase_HandleCallbackRejects(t *testing.T) {
 	cases := map[string]struct {
-		setup        func(f *googleFixture)
-		wantErr      error
-		wantRevoked  []string
-		wantUserinfo bool
+		setup func(f *googleFixture)
+		// connectedToOther connects the authorized Google account to
+		// otherKey before the callback.
+		connectedToOther bool
+		wantErr          error
+		wantRevoked      []string
+		wantUserinfo     bool
 	}{
 		"gmail scope not granted": {
 			setup: func(f *googleFixture) {
@@ -181,35 +197,45 @@ func TestGoogleWorkspaceUseCase_HandleCallbackRejects(t *testing.T) {
 					"https://www.googleapis.com/auth/drive.readonly",
 				}
 			},
-			wantErr:     usecase.ErrGoogleScopeNotGranted,
-			wantRevoked: []string{"refresh-1"},
+			wantErr:      usecase.ErrGoogleScopeNotGranted,
+			wantRevoked:  []string{"refresh-1"},
+			wantUserinfo: true,
 		},
 		"no scope granted": {
-			setup:       func(f *googleFixture) { f.oauth.result.Scopes = nil },
-			wantErr:     usecase.ErrGoogleScopeNotGranted,
-			wantRevoked: []string{"refresh-1"},
+			setup:        func(f *googleFixture) { f.oauth.result.Scopes = nil },
+			wantErr:      usecase.ErrGoogleScopeNotGranted,
+			wantRevoked:  []string{"refresh-1"},
+			wantUserinfo: true,
 		},
 		"no refresh token": {
-			setup:       func(f *googleFixture) { f.oauth.result.RefreshToken = "" },
-			wantErr:     usecase.ErrGoogleConnectRejected,
-			wantRevoked: []string{"access-1"},
+			setup:        func(f *googleFixture) { f.oauth.result.RefreshToken = "" },
+			wantErr:      usecase.ErrGoogleConnectRejected,
+			wantRevoked:  []string{"access-1"},
+			wantUserinfo: true,
 		},
+		// The account cannot be identified, so it may be another user's
+		// connection: nothing is revoked.
 		"userinfo fails": {
 			setup:        func(f *googleFixture) { f.oauth.identityErr = errors.New("userinfo unavailable") },
-			wantRevoked:  []string{"refresh-1"},
 			wantUserinfo: true,
 		},
 		"no email": {
 			setup:        func(f *googleFixture) { f.oauth.identity = &model.GoogleIdentity{Subject: "1234567890"} },
 			wantErr:      usecase.ErrGoogleConnectRejected,
-			wantRevoked:  []string{"refresh-1"},
 			wantUserinfo: true,
 		},
 		"no subject": {
 			setup:        func(f *googleFixture) { f.oauth.identity = &model.GoogleIdentity{Email: "alice@example.com"} },
 			wantErr:      usecase.ErrGoogleConnectRejected,
-			wantRevoked:  []string{"refresh-1"},
 			wantUserinfo: true,
+		},
+		// Revoking would end the other user's connection of the same account,
+		// even when a scope is also missing.
+		"account connected to another user": {
+			setup:            func(f *googleFixture) { f.oauth.result.Scopes = []string{"openid"} },
+			connectedToOther: true,
+			wantErr:          usecase.ErrGoogleAccountInUse,
+			wantUserinfo:     true,
 		},
 		"encryption fails": {
 			setup:        func(f *googleFixture) { f.cipher.encryptErr = errors.New("kms unavailable") },
@@ -223,6 +249,10 @@ func TestGoogleWorkspaceUseCase_HandleCallbackRejects(t *testing.T) {
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			f := newGoogleFixture()
+			if tc.connectedToOther {
+				gt.NoError(t, usecase.NewGoogleWorkspaceAccess(f.repo, f.cipher).
+					Store(context.Background(), otherKey, "refresh-other", googleScopes, aliceIdentity, f.now)).Required()
+			}
 			tc.setup(f)
 
 			err := f.uc.HandleCallback(context.Background(), testKey, "code-1")
@@ -248,24 +278,81 @@ func TestGoogleWorkspaceUseCase_HandleCallbackRevokeFailureKeepsCause(t *testing
 	f.assertNothingStored(t)
 }
 
-func TestGoogleWorkspaceUseCase_ReconnectReplacesCredential(t *testing.T) {
+// A second connection by a connected user changes nothing: the code is not
+// exchanged, nothing is revoked, and the stored credential stays.
+func TestGoogleWorkspaceUseCase_CallbackWhenConnectedIsIgnored(t *testing.T) {
 	ctx := context.Background()
 	f := newGoogleFixture()
-	first := f.now
 	gt.NoError(t, f.uc.HandleCallback(ctx, testKey, "code-1")).Required()
 
-	f.now = first.Add(time.Hour)
 	f.oauth.result.RefreshToken = "refresh-2"
-	f.oauth.identity = &model.GoogleIdentity{Subject: "999", Email: "bob@example.com"}
+	f.oauth.identity = bobIdentity
+	err := f.uc.HandleCallback(ctx, testKey, "code-2")
+	gt.Error(t, err).Is(usecase.ErrGoogleWorkspaceAlreadyConnected)
+
+	gt.Value(t, f.oauth.exchanges).Equal([]exchangeCall{{Code: "code-1", RedirectURI: googleCallbackURL}})
+	gt.Array(t, f.oauth.revoked()).Length(0)
+	cred, err := f.repo.GoogleWorkspaceCredential().Get(ctx, testKey)
+	gt.NoError(t, err).Required()
+	gt.Bool(t, bytes.HasSuffix(cred.RefreshToken.Ciphertext, []byte("refresh-1"))).True()
+	gt.String(t, cred.Email).Equal("alice@example.com")
+}
+
+// racingRepository reports every Google account as free, as a check made just
+// before another request connects it would, so the conflict is found only
+// when the credential is created.
+type racingRepository struct {
+	interfaces.Repository
+}
+
+func (r racingRepository) GoogleWorkspaceCredential() interfaces.GoogleWorkspaceCredentialRepository {
+	return racingCredentials{r.Repository.GoogleWorkspaceCredential()}
+}
+
+type racingCredentials struct {
+	interfaces.GoogleWorkspaceCredentialRepository
+}
+
+func (racingCredentials) AccountInUse(context.Context, model.UserKey, string) (bool, error) {
+	return false, nil
+}
+
+func TestGoogleWorkspaceUseCase_ConflictFoundWhenStoring(t *testing.T) {
+	ctx := context.Background()
+	repo := memory.New()
+	cipher := &fakeCipher{}
+	oauth := newFakeGoogleOAuth()
+	uc := usecase.NewGoogleWorkspaceUseCase(oauth, usecase.NewGoogleWorkspaceAccess(racingRepository{repo}, cipher),
+		usecase.GoogleWorkspaceConfig{BaseURL: "https://ariel.example.com"})
+	gt.NoError(t, usecase.NewGoogleWorkspaceAccess(repo, cipher).
+		Store(ctx, otherKey, "refresh-other", googleScopes, aliceIdentity, time.Now())).Required()
+
+	err := uc.HandleCallback(ctx, testKey, "code-1")
+	gt.Error(t, err).Is(usecase.ErrGoogleAccountInUse)
+	gt.Array(t, oauth.revoked()).Length(0)
+	_, err = repo.GoogleWorkspaceCredential().Get(ctx, testKey)
+	gt.Error(t, err).Is(interfaces.ErrNotFound)
+}
+
+func TestGoogleWorkspaceUseCase_ReconnectAfterDisconnect(t *testing.T) {
+	ctx := context.Background()
+	f := newGoogleFixture()
+	gt.NoError(t, f.uc.HandleCallback(ctx, testKey, "code-1")).Required()
+	gt.NoError(t, f.uc.Disconnect(ctx, testKey)).Required()
+
+	f.oauth.result.RefreshToken = "refresh-2"
+	f.oauth.identity = bobIdentity
 	gt.NoError(t, f.uc.HandleCallback(ctx, testKey, "code-2")).Required()
 
 	cred, err := f.repo.GoogleWorkspaceCredential().Get(ctx, testKey)
 	gt.NoError(t, err).Required()
 	gt.Bool(t, bytes.HasSuffix(cred.RefreshToken.Ciphertext, []byte("refresh-2"))).True()
 	gt.String(t, cred.Email).Equal("bob@example.com")
-	gt.Bool(t, cred.CreatedAt.Equal(first)).True()
-	gt.Bool(t, cred.UpdatedAt.Equal(f.now)).True()
-	gt.Array(t, f.oauth.revoked()).Length(0)
+
+	// The first account is free again for another user.
+	inUse, err := usecase.NewGoogleWorkspaceAccess(f.repo, f.cipher).AccountInUse(ctx, otherKey, aliceIdentity.Subject)
+	gt.NoError(t, err).Required()
+	gt.Bool(t, inUse).False()
 }
 
 func TestGoogleWorkspaceUseCase_Status(t *testing.T) {

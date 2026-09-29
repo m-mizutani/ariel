@@ -41,18 +41,11 @@ type GoogleWorkspaceToken struct {
 }
 
 // Store encrypts token and saves it with the granted scopes and the account it
-// belongs to, keeping the original CreatedAt when a credential already exists.
+// belongs to. It fails with interfaces.ErrAlreadyExists when the user already
+// has a credential and with interfaces.ErrGoogleAccountInUse when the Google
+// account is connected to another user; nothing is stored in either case.
 func (a *GoogleWorkspaceAccess) Store(ctx context.Context, key model.UserKey, token model.GoogleRefreshToken,
 	scopes []string, identity *model.GoogleIdentity, now time.Time) error {
-	createdAt := now
-	existing, err := a.repo.GoogleWorkspaceCredential().Get(ctx, key)
-	switch {
-	case err == nil:
-		createdAt = existing.CreatedAt
-	case !errors.Is(err, interfaces.ErrNotFound):
-		return goerr.Wrap(err, "failed to load existing google workspace credential")
-	}
-
 	encrypted, err := a.cipher.Encrypt(ctx, []byte(token), googleTokenAAD(key))
 	if err != nil {
 		return goerr.Wrap(err, "failed to encrypt google refresh token",
@@ -66,13 +59,23 @@ func (a *GoogleWorkspaceAccess) Store(ctx context.Context, key model.UserKey, to
 		Scopes:       scopes,
 		Subject:      identity.Subject,
 		Email:        identity.Email,
-		CreatedAt:    createdAt,
+		CreatedAt:    now,
 		UpdatedAt:    now,
 	}
-	if err := a.repo.GoogleWorkspaceCredential().Put(ctx, key, cred); err != nil {
+	if err := a.repo.GoogleWorkspaceCredential().Create(ctx, key, cred); err != nil {
 		return goerr.Wrap(err, "failed to save google workspace credential")
 	}
 	return nil
+}
+
+// AccountInUse reports whether the Google account identified by subject is
+// connected to a user other than key.
+func (a *GoogleWorkspaceAccess) AccountInUse(ctx context.Context, key model.UserKey, subject string) (bool, error) {
+	inUse, err := a.repo.GoogleWorkspaceCredential().AccountInUse(ctx, key, subject)
+	if err != nil {
+		return false, goerr.Wrap(err, "failed to check the owner of the google account")
+	}
+	return inUse, nil
 }
 
 // Token decrypts the user's refresh token. It returns
