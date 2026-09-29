@@ -12,7 +12,7 @@ async function signIn(page: Page) {
   await expect(page.getByText(`Signed in as ${e2eUserID}`)).toBeVisible()
 }
 
-test('the settings page lists Slack and the services coming later', async ({ page }) => {
+test('the settings page lists Slack, Google Workspace, and the services coming later', async ({ page }) => {
   await signIn(page)
 
   await expect(page.getByRole('heading', { level: 3 })).toHaveText(['Slack', 'Google Workspace', 'Notion', 'GitHub'])
@@ -21,7 +21,10 @@ test('the settings page lists Slack and the services coming later', async ({ pag
   await expect(slack.getByText('Not connected')).toBeVisible()
   await expect(slack.getByRole('button', { name: 'Connect Slack' })).toBeEnabled()
 
-  for (const name of ['Google Workspace', 'Notion', 'GitHub']) {
+  // google-workspace.spec.ts covers the Google Workspace row.
+  await expect(page.getByRole('listitem', { name: 'Google Workspace' }).getByText('Coming soon')).toHaveCount(0)
+
+  for (const name of ['Notion', 'GitHub']) {
     const service = page.getByRole('listitem', { name })
     await expect(service.getByText('Coming soon')).toBeVisible()
     await expect(service.getByRole('button', { name: `Connect ${name}` })).toBeDisabled()

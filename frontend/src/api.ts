@@ -35,3 +35,33 @@ export async function logout(): Promise<void> {
 export function startLogin(): void {
   window.location.assign('/api/auth/login')
 }
+
+export type GoogleWorkspaceStatus = {
+  // false when the server has no Google OAuth client configured
+  available: boolean
+  connected: boolean
+  // the connected Google account; empty when not connected
+  email: string
+}
+
+const googleWorkspacePath = '/api/integrations/google-workspace'
+
+// Throws when the request fails or the response is not 2xx.
+export async function fetchGoogleWorkspaceStatus(): Promise<GoogleWorkspaceStatus> {
+  const res = await fetch(googleWorkspacePath, { credentials: 'include' })
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`)
+  }
+  return (await res.json()) as GoogleWorkspaceStatus
+}
+
+export async function disconnectGoogleWorkspace(): Promise<void> {
+  const res = await fetch(`${googleWorkspacePath}/disconnect`, { method: 'POST', credentials: 'include' })
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`)
+  }
+}
+
+export function startGoogleWorkspaceConnect(): void {
+  window.location.assign(`${googleWorkspacePath}/connect`)
+}

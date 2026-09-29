@@ -11,6 +11,7 @@ import (
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/urfave/cli/v3"
 
+	googleadapter "github.com/m-mizutani/ariel/pkg/adapter/google"
 	slackadapter "github.com/m-mizutani/ariel/pkg/adapter/slack"
 	"github.com/m-mizutani/ariel/pkg/cli/config"
 	httpctrl "github.com/m-mizutani/ariel/pkg/controller/http"
@@ -36,6 +37,7 @@ type serveConfig struct {
 	repository config.Repository
 	slack      config.Slack
 	kms        config.KMS
+	google     config.Google
 	noAuth     config.NoAuth
 }
 
@@ -45,12 +47,13 @@ func (c *serveConfig) flags() []cli.Flag {
 	flags = append(flags, c.repository.Flags()...)
 	flags = append(flags, c.slack.Flags()...)
 	flags = append(flags, c.kms.Flags()...)
+	flags = append(flags, c.google.Flags()...)
 	flags = append(flags, c.noAuth.Flags()...)
 	return flags
 }
 
 func (c *serveConfig) validate() error {
-	for _, v := range []interface{ Validate() error }{&c.server, &c.repository, &c.noAuth} {
+	for _, v := range []interface{ Validate() error }{&c.server, &c.repository, &c.google, &c.noAuth} {
 		if err := v.Validate(); err != nil {
 			return err
 		}
@@ -153,6 +156,14 @@ func runServe(ctx context.Context, cfg *serveConfig) error {
 			EventClaimTTL: slackEventClaimTTL,
 		})
 		httpOpts = append(httpOpts, httpctrl.WithSlackEvents(slackUC, cfg.slack.SigningSecret()))
+	}
+	if cfg.google.Enabled() {
+		googleUC := usecase.NewGoogleWorkspaceUseCase(
+			googleadapter.NewOAuth(cfg.google.ClientID(), cfg.google.ClientSecret()),
+			usecase.NewGoogleWorkspaceAccess(repo, cipher),
+			usecase.GoogleWorkspaceConfig{BaseURL: cfg.server.BaseURL()},
+		)
+		httpOpts = append(httpOpts, httpctrl.WithGoogleWorkspace(googleUC))
 	}
 
 	handler, err := httpctrl.New(authUC, httpctrl.Config{BaseURL: cfg.server.BaseURL()}, httpOpts...)

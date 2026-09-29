@@ -13,6 +13,7 @@ import (
 type Repository interface {
 	User() UserRepository
 	SlackCredential() SlackCredentialRepository
+	GoogleWorkspaceCredential() GoogleWorkspaceCredentialRepository
 	Session() SessionRepository
 	SlackEvent() SlackEventRepository
 	Close() error
@@ -31,6 +32,28 @@ type SlackCredentialRepository interface {
 	// survives. It reports whether a credential was deleted; a missing or
 	// replaced credential is not an error.
 	DeleteIfUnchanged(ctx context.Context, key model.UserKey, expected *model.SlackCredential) (bool, error)
+}
+
+// GoogleWorkspaceCredentialRepository keeps at most one credential per user
+// and connects each Google account (by cred.Subject) to at most one user. The
+// owner of a Google account is recorded outside the user's document; it is
+// written and deleted together with the credential and never returned.
+type GoogleWorkspaceCredentialRepository interface {
+	// Create stores the credential and makes key the owner of its Google
+	// account, atomically. It fails with ErrAlreadyExists when key already has
+	// a credential, and with ErrGoogleAccountInUse when another user owns the
+	// Google account.
+	Create(ctx context.Context, key model.UserKey, cred *model.GoogleWorkspaceCredential) error
+	Get(ctx context.Context, key model.UserKey) (*model.GoogleWorkspaceCredential, error)
+	// AccountInUse reports whether a user other than key owns the Google
+	// account identified by subject.
+	AccountInUse(ctx context.Context, key model.UserKey, subject string) (bool, error)
+	// DeleteIfUnchanged removes the credential, and the ownership of its
+	// Google account, only while the credential still holds the ciphertext of
+	// expected, so a credential stored by a later connection survives. It
+	// reports whether a credential was deleted; a missing or replaced
+	// credential is not an error.
+	DeleteIfUnchanged(ctx context.Context, key model.UserKey, expected *model.GoogleWorkspaceCredential) (bool, error)
 }
 
 type SessionRepository interface {

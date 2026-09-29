@@ -8,27 +8,32 @@ import (
 )
 
 type Memory struct {
-	user            *userRepository
-	slackCredential *slackCredentialRepository
-	session         *sessionRepository
-	slackEvent      *slackEventRepository
+	user                      *userRepository
+	slackCredential           *slackCredentialRepository
+	googleWorkspaceCredential *googleWorkspaceCredentialRepository
+	session                   *sessionRepository
+	slackEvent                *slackEventRepository
 }
 
 var _ interfaces.Repository = &Memory{}
 
 func New() *Memory {
 	return &Memory{
-		user:            newUserRepository(),
-		slackCredential: newSlackCredentialRepository(),
-		session:         newSessionRepository(),
-		slackEvent:      newSlackEventRepository(),
+		user:                      newUserRepository(),
+		slackCredential:           newSlackCredentialRepository(),
+		googleWorkspaceCredential: newGoogleWorkspaceCredentialRepository(),
+		session:                   newSessionRepository(),
+		slackEvent:                newSlackEventRepository(),
 	}
 }
 
 func (m *Memory) User() interfaces.UserRepository                       { return m.user }
 func (m *Memory) SlackCredential() interfaces.SlackCredentialRepository { return m.slackCredential }
-func (m *Memory) Session() interfaces.SessionRepository                 { return m.session }
-func (m *Memory) SlackEvent() interfaces.SlackEventRepository           { return m.slackEvent }
+func (m *Memory) GoogleWorkspaceCredential() interfaces.GoogleWorkspaceCredentialRepository {
+	return m.googleWorkspaceCredential
+}
+func (m *Memory) Session() interfaces.SessionRepository       { return m.session }
+func (m *Memory) SlackEvent() interfaces.SlackEventRepository { return m.slackEvent }
 
 func (m *Memory) Close() error {
 	return nil
