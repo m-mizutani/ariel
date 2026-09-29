@@ -130,13 +130,28 @@ var testStatic = fstest.MapFS{
 
 func newTestServer(t *testing.T, baseURL string, authUC *fakeAuthUseCase, slackUC *fakeSlackEventUseCase) *httpctrl.Server {
 	t.Helper()
-	srv, err := httpctrl.New(authUC, slackUC, httpctrl.Config{
-		BaseURL:            baseURL,
-		SlackSigningSecret: testSigningSecret,
-		Static:             testStatic,
-	})
+	srv, err := httpctrl.New(authUC, httpctrl.Config{
+		BaseURL: baseURL,
+		Static:  testStatic,
+	}, httpctrl.WithSlackEvents(slackUC, testSigningSecret))
 	gt.NoError(t, err).Required()
 	return srv
+}
+
+func TestServer_WithoutSlackEvents(t *testing.T) {
+	srv, err := httpctrl.New(newFakeAuthUseCase(), httpctrl.Config{BaseURL: "http://localhost:8080", Static: testStatic})
+	gt.NoError(t, err).Required()
+
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/hooks/slack/event", nil))
+	gt.Number(t, w.Code).NotEqual(http.StatusOK)
+	gt.Number(t, w.Code).NotEqual(http.StatusUnauthorized)
+}
+
+func TestServer_SlackEventsNeedSigningSecret(t *testing.T) {
+	_, err := httpctrl.New(newFakeAuthUseCase(), httpctrl.Config{BaseURL: "http://localhost:8080", Static: testStatic},
+		httpctrl.WithSlackEvents(&fakeSlackEventUseCase{}, ""))
+	gt.Value(t, err).NotNil()
 }
 
 func decodeJSON(t *testing.T, body io.Reader) map[string]any {

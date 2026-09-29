@@ -34,8 +34,7 @@ type slackEventUseCase interface {
 type Config struct {
 	// BaseURL decides the Secure cookie attribute. A TLS-terminating proxy
 	// hides TLS from the request, so the scheme of the public URL is used.
-	BaseURL            string
-	SlackSigningSecret string
+	BaseURL string
 	// Static is the SPA file system. nil serves the embedded frontend build.
 	Static fs.FS
 }
@@ -47,7 +46,31 @@ type Server struct {
 	secureCookie bool
 }
 
-func New(authUC authUseCase, slackUC slackEventUseCase, cfg Config) (*Server, error) {
+type Option func(*options)
+
+type options struct {
+	slackUC            slackEventUseCase
+	slackSigningSecret string
+}
+
+// WithSlackEvents mounts POST /hooks/slack/event. Without it the endpoint does
+// not exist, which is how a no-auth development server without Slack runs.
+func WithSlackEvents(uc slackEventUseCase, signingSecret string) Option {
+	return func(o *options) {
+		o.slackUC = uc
+		o.slackSigningSecret = signingSecret
+	}
+}
+
+func New(authUC authUseCase, cfg Config, opts ...Option) (*Server, error) {
+	var o options
+	for _, opt := range opts {
+		opt(&o)
+	}
+	if o.slackUC != nil && o.slackSigningSecret == "" {
+		return nil, goerr.New("slack events need a signing secret")
+	}
+
 	base, err := url.Parse(cfg.BaseURL)
 	if err != nil {
 		return nil, goerr.Wrap(err, "invalid base URL", goerr.V("base_url", cfg.BaseURL))
@@ -64,7 +87,7 @@ func New(authUC authUseCase, slackUC slackEventUseCase, cfg Config) (*Server, er
 	s := &Server{
 		router:       chi.NewRouter(),
 		authUC:       authUC,
-		slackUC:      slackUC,
+		slackUC:      o.slackUC,
 		secureCookie: base.Scheme == "https",
 	}
 
@@ -85,7 +108,9 @@ func New(authUC authUseCase, slackUC slackEventUseCase, cfg Config) (*Server, er
 	})
 	r.HandleFunc("/api/*", apiNotFound)
 
-	r.With(slackSignatureMiddleware(cfg.SlackSigningSecret)).Post("/hooks/slack/event", s.slackEventHandler)
+	if o.slackUC != nil {
+		r.With(slackSignatureMiddleware(o.slackSigningSecret)).Post("/hooks/slack/event", s.slackEventHandler)
+	}
 
 	r.Get("/*", spaHandler(static))
 

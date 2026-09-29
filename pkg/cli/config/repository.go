@@ -50,6 +50,10 @@ func (x *Repository) Flags() []cli.Flag {
 	}
 }
 
+func (x *Repository) IsMemory() bool {
+	return x.backend == backendMemory
+}
+
 func (x *Repository) Validate() error {
 	switch x.backend {
 	case backendFirestore:

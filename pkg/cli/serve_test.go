@@ -18,7 +18,7 @@ func clearServeEnv(t *testing.T) {
 		"ARIEL_ADDR", "ARIEL_BASE_URL", "ARIEL_SESSION_TTL", "ARIEL_LOG_LEVEL", "ARIEL_LOG_FORMAT",
 		"ARIEL_REPOSITORY_BACKEND", "ARIEL_FIRESTORE_PROJECT_ID", "ARIEL_FIRESTORE_DATABASE_ID",
 		"ARIEL_SLACK_CLIENT_ID", "ARIEL_SLACK_CLIENT_SECRET", "ARIEL_SLACK_SIGNING_SECRET",
-		"ARIEL_SLACK_BOT_TOKEN", "ARIEL_SLACK_TEAM_ID", "ARIEL_KMS_KEY_NAME",
+		"ARIEL_SLACK_BOT_TOKEN", "ARIEL_SLACK_TEAM_ID", "ARIEL_KMS_KEY_NAME", "ARIEL_NO_AUTH",
 	} {
 		t.Setenv(name, "")
 		gt.NoError(t, os.Unsetenv(name)).Required()
@@ -78,6 +78,33 @@ func TestServe_FirestoreRequiresProjectID(t *testing.T) {
 	err := cli.Run(context.Background(), args, "test")
 	gt.Value(t, err).NotNil().Required()
 	gt.String(t, err.Error()).Contains("--firestore-project-id")
+}
+
+func TestServe_NoAuthRequiresMemoryBackend(t *testing.T) {
+	clearServeEnv(t)
+	args := []string{
+		"ariel", "--log-format", "json", "serve",
+		"--base-url", "http://localhost:8080",
+		"--repository-backend", "firestore", "--firestore-project-id", "my-project",
+		"--slack-team-id", "T0123ABCD",
+		"--no-auth", "U0E2ETEST",
+	}
+	err := cli.Run(context.Background(), args, "test")
+	gt.Value(t, err).NotNil().Required()
+	gt.String(t, err.Error()).Contains("--no-auth requires --repository-backend memory")
+}
+
+func TestServe_NoAuthNeedsTeamID(t *testing.T) {
+	clearServeEnv(t)
+	args := []string{
+		"ariel", "--log-format", "json", "serve",
+		"--base-url", "http://localhost:8080",
+		"--repository-backend", "memory",
+		"--no-auth", "U0E2ETEST",
+	}
+	err := cli.Run(context.Background(), args, "test")
+	gt.Value(t, err).NotNil().Required()
+	gt.String(t, err.Error()).Contains("--slack-team-id")
 }
 
 func TestRun_InvalidLogLevel(t *testing.T) {

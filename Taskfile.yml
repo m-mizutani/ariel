@@ -22,6 +22,52 @@ tasks:
     cmds:
       - pnpm dev
 
+  e2e:
+    desc: "Build the server and run the Playwright E2E tests against it (--no-auth, in-memory repository)"
+    cmds:
+      - task: build
+      - cd frontend && pnpm e2e
+
+  screenshots:
+    desc: "Capture Playwright screenshots of every screen state into frontend/screenshots/"
+    dir: frontend
+    cmds:
+      - pnpm screenshots
+
+  screenshots:upload:
+    desc: "Upload frontend/screenshots/*.png to the screenshots branch under pr-<PR>/ (usage: task screenshots:upload PR=12)"
+    requires:
+      vars: [PR]
+    cmds:
+      - |
+        set -eu
+        # The screenshots branch only stores images for PR descriptions and is
+        # never merged. A commit is added without checking the branch out, so
+        # the working tree and the current branch are left untouched.
+        index=$(mktemp)
+        trap 'rm -f "$index"' EXIT
+        parent=""
+        if git fetch origin screenshots 2>/dev/null; then
+          parent=$(git rev-parse FETCH_HEAD)
+          GIT_INDEX_FILE="$index" git read-tree "$parent"
+        else
+          GIT_INDEX_FILE="$index" git read-tree --empty
+        fi
+        for f in frontend/screenshots/*.png; do
+          blob=$(git hash-object -w "$f")
+          GIT_INDEX_FILE="$index" git update-index --add --cacheinfo "100644,$blob,pr-{{.PR}}/$(basename "$f")"
+        done
+        tree=$(GIT_INDEX_FILE="$index" git write-tree)
+        if [ -n "$parent" ]; then
+          commit=$(git commit-tree "$tree" -p "$parent" -m "chore: screenshots for PR #{{.PR}}")
+        else
+          commit=$(git commit-tree "$tree" -m "chore: screenshots for PR #{{.PR}}")
+        fi
+        git push origin "$commit:refs/heads/screenshots"
+        for f in frontend/screenshots/*.png; do
+          echo "https://raw.githubusercontent.com/m-mizutani/ariel/screenshots/pr-{{.PR}}/$(basename "$f")"
+        done
+
   lint:frontend:
     desc: "Run ESLint on the frontend"
     dir: frontend

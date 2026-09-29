@@ -77,6 +77,27 @@ func (x *Slack) Validate() error {
 	return nil
 }
 
+// ValidateForNoAuth is the check used with --no-auth: only the workspace is
+// required, since nobody signs in through Slack. The bot token and the signing
+// secret receive Slack events, so they are set together or not at all.
+func (x *Slack) ValidateForNoAuth() error {
+	if x.teamID == "" {
+		return goerr.New("--slack-team-id is required")
+	}
+	if err := model.SlackTeamID(x.teamID).Validate(); err != nil {
+		return goerr.Wrap(err, "invalid --slack-team-id")
+	}
+	if (x.botToken == "") != (x.signingSecret == "") {
+		return goerr.New("--slack-bot-token and --slack-signing-secret must be set together")
+	}
+	return nil
+}
+
+// EventsEnabled reports whether Slack events can be received and answered.
+func (x *Slack) EventsEnabled() bool {
+	return x.botToken != "" && x.signingSecret != ""
+}
+
 func (x *Slack) ClientID() string          { return x.clientID }
 func (x *Slack) ClientSecret() string      { return x.clientSecret }
 func (x *Slack) SigningSecret() string     { return x.signingSecret }

@@ -39,10 +39,10 @@ export default function Home() {
         ) : (
           <>
             <p className="error" role="alert">
-              Your Slack account is no longer linked. Sign in again to link it.
+              Your Slack account is not linked. Sign in with Slack to link it.
             </p>
             <button type="button" className="button" onClick={startLogin}>
-              Sign in again
+              Sign in with Slack
             </button>
           </>
         )}

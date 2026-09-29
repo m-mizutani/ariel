@@ -287,6 +287,45 @@ func TestAuthUseCase_Logout(t *testing.T) {
 	})
 }
 
+func TestAuthUseCase_NoAuth(t *testing.T) {
+	ctx := context.Background()
+	repo := memory.New()
+	oauth := &fakeOAuth{err: errors.New("slack must not be called")}
+	factory := newFakeUserClientFactory()
+	access := usecase.NewSlackUserAccess(repo, &fakeCipher{}, factory)
+	uc := usecase.NewAuthUseCase(repo, oauth, nil, access, factory, usecase.AuthConfig{
+		BaseURL:      testBaseURL,
+		TeamID:       testKey.TeamID,
+		SessionTTL:   testSessionTTL,
+		NoAuthUserID: testKey.UserID,
+	})
+
+	t.Run("authorize URL points at the own callback", func(t *testing.T) {
+		u, err := url.Parse(uc.AuthorizeURL("state-value"))
+		gt.NoError(t, err).Required()
+		gt.String(t, u.Scheme+"://"+u.Host+u.Path).Equal(testBaseURL + "/api/auth/callback")
+		gt.String(t, u.Query().Get("state")).Equal("state-value")
+		gt.String(t, u.Query().Get("code")).NotEqual("")
+	})
+
+	t.Run("callback signs in the configured user without Slack", func(t *testing.T) {
+		session, secret, err := uc.HandleCallback(ctx, "no-auth")
+		gt.NoError(t, err).Required()
+		gt.Value(t, session.Key()).Equal(testKey)
+		gt.Array(t, oauth.codes).Length(0)
+		gt.Number(t, factory.authTestCount()).Equal(0)
+
+		got, err := uc.Authenticate(ctx, session.ID, secret)
+		gt.NoError(t, err).Required()
+		gt.Value(t, got.Key()).Equal(testKey)
+
+		me, err := uc.Me(ctx, testKey)
+		gt.NoError(t, err).Required()
+		gt.String(t, me.Name).Equal(string(testKey.UserID))
+		gt.Bool(t, me.SlackConnected).False()
+	})
+}
+
 func TestAuthUseCase_Me(t *testing.T) {
 	ctx := context.Background()
 	f := newAuthFixture(t)

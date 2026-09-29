@@ -26,7 +26,16 @@ type AuthConfig struct {
 	BaseURL    string // scheme://host[:port], no trailing slash
 	TeamID     model.SlackTeamID
 	SessionTTL time.Duration
+	// NoAuthUserID, when set, disables Slack authorization: every sign-in
+	// becomes this user of TeamID. It exists for E2E tests and local
+	// development; the CLI accepts it only with the in-memory repository.
+	NoAuthUserID model.SlackUserID
 }
+
+// noAuthCode is the authorization code AuthorizeURL puts into the callback URL
+// in no-auth mode. HandleCallback does not check it; the callback still goes
+// through the state cookie check and session creation.
+const noAuthCode = "no-auth"
 
 func (c AuthConfig) callbackURL() string {
 	return c.BaseURL + "/api/auth/callback"
@@ -58,6 +67,10 @@ func NewAuthUseCase(repo interfaces.Repository, oauth interfaces.SlackOAuth, bot
 // AuthorizeURL returns the Slack OAuth v2 authorization URL. Only user scopes
 // are requested; the bot token is installed separately by an administrator.
 func (uc *AuthUseCase) AuthorizeURL(state string) string {
+	if uc.cfg.NoAuthUserID != "" {
+		return uc.cfg.callbackURL() + "?" + url.Values{"code": {noAuthCode}, "state": {state}}.Encode()
+	}
+
 	params := url.Values{}
 	params.Set("client_id", uc.cfg.ClientID)
 	params.Set("user_scope", strings.Join(slackUserScopes, ","))
@@ -72,6 +85,10 @@ func (uc *AuthUseCase) AuthorizeURL(state string) string {
 // configured workspace, stores the user and the encrypted token, and creates
 // a web session. Nothing is stored when a check fails.
 func (uc *AuthUseCase) HandleCallback(ctx context.Context, code string) (*auth.Session, auth.SessionSecret, error) {
+	if uc.cfg.NoAuthUserID != "" {
+		return uc.signInWithoutSlack(ctx)
+	}
+
 	res, err := uc.oauth.ExchangeCode(ctx, code, uc.cfg.callbackURL())
 	if err != nil {
 		return nil, "", goerr.Wrap(err, "failed to exchange slack oauth code")
@@ -104,7 +121,21 @@ func (uc *AuthUseCase) HandleCallback(ctx context.Context, code string) (*auth.S
 	if err := uc.access.Store(ctx, key, res.AccessToken, res.Scopes, now); err != nil {
 		return nil, "", goerr.Wrap(err, "failed to store slack user token")
 	}
+	return uc.createSession(ctx, key, now)
+}
 
+// signInWithoutSlack signs in the configured no-auth user. No Slack token is
+// obtained, so the user is shown as not linked to Slack.
+func (uc *AuthUseCase) signInWithoutSlack(ctx context.Context) (*auth.Session, auth.SessionSecret, error) {
+	key := model.UserKey{TeamID: uc.cfg.TeamID, UserID: uc.cfg.NoAuthUserID}
+	now := uc.now()
+	if err := uc.saveUser(ctx, key, string(key.UserID), now); err != nil {
+		return nil, "", err
+	}
+	return uc.createSession(ctx, key, now)
+}
+
+func (uc *AuthUseCase) createSession(ctx context.Context, key model.UserKey, now time.Time) (*auth.Session, auth.SessionSecret, error) {
 	secret := auth.NewSessionSecret()
 	session := &auth.Session{
 		ID:         auth.NewSessionID(),

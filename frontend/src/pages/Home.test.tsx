@@ -36,15 +36,15 @@ describe('Home', () => {
 
     expect(await screen.findByRole('heading', { name: 'Signed in as Alice Example' })).toBeInTheDocument()
     expect(screen.getByText(/Your Slack account is linked\./)).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Sign in again' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Sign in with Slack' })).toBeNull()
   })
 
-  it('asks a user whose Slack account is no longer linked to sign in again', async () => {
+  it('asks a user whose Slack account is not linked to sign in with Slack', async () => {
     stubFetch(async () => new Response(me(false), { status: 200 }))
     renderHome()
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Your Slack account is no longer linked.')
-    expect(screen.getByRole('button', { name: 'Sign in again' })).toBeInTheDocument()
+    expect(await screen.findByRole('alert')).toHaveTextContent('Your Slack account is not linked.')
+    expect(screen.getByRole('button', { name: 'Sign in with Slack' })).toBeInTheDocument()
   })
 
   it('signs out and moves to the login page', async () => {

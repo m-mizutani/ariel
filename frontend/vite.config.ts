@@ -8,6 +8,8 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test-setup.ts'],
+    // e2e/ holds the Playwright screenshot suite, run by `pnpm screenshots`.
+    exclude: ['e2e/**', 'node_modules/**'],
   },
   build: {
     outDir: 'dist',

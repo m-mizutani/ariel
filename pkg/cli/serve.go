@@ -14,6 +14,8 @@ import (
 	slackadapter "github.com/m-mizutani/ariel/pkg/adapter/slack"
 	"github.com/m-mizutani/ariel/pkg/cli/config"
 	httpctrl "github.com/m-mizutani/ariel/pkg/controller/http"
+	"github.com/m-mizutani/ariel/pkg/domain/interfaces"
+	"github.com/m-mizutani/ariel/pkg/domain/model"
 	"github.com/m-mizutani/ariel/pkg/usecase"
 	"github.com/m-mizutani/ariel/pkg/utils/async"
 	"github.com/m-mizutani/ariel/pkg/utils/logging"
@@ -34,6 +36,7 @@ type serveConfig struct {
 	repository config.Repository
 	slack      config.Slack
 	kms        config.KMS
+	noAuth     config.NoAuth
 }
 
 func (c *serveConfig) flags() []cli.Flag {
@@ -42,16 +45,49 @@ func (c *serveConfig) flags() []cli.Flag {
 	flags = append(flags, c.repository.Flags()...)
 	flags = append(flags, c.slack.Flags()...)
 	flags = append(flags, c.kms.Flags()...)
+	flags = append(flags, c.noAuth.Flags()...)
 	return flags
 }
 
 func (c *serveConfig) validate() error {
-	for _, v := range []interface{ Validate() error }{&c.server, &c.repository, &c.slack, &c.kms} {
+	for _, v := range []interface{ Validate() error }{&c.server, &c.repository, &c.noAuth} {
 		if err := v.Validate(); err != nil {
 			return err
 		}
 	}
+
+	if !c.noAuth.Enabled() {
+		if err := c.slack.Validate(); err != nil {
+			return err
+		}
+		return c.kms.Validate()
+	}
+
+	// --no-auth lets anyone who opens the page act as the configured user.
+	// Restricting it to the in-memory repository keeps it away from any
+	// deployment that holds real data.
+	if !c.repository.IsMemory() {
+		return goerr.New("--no-auth requires --repository-backend memory")
+	}
+	if err := c.slack.ValidateForNoAuth(); err != nil {
+		return err
+	}
+	if c.kms.IsSet() {
+		return c.kms.Validate()
+	}
 	return nil
+}
+
+// unavailableCipher stands in for Cloud KMS in no-auth mode without a key.
+// No token is stored in that mode, so it is never expected to be called.
+type unavailableCipher struct{}
+
+func (unavailableCipher) Encrypt(context.Context, []byte, []byte) (*model.EncryptedData, error) {
+	return nil, goerr.New("KMS is not configured")
+}
+
+func (unavailableCipher) Decrypt(context.Context, *model.EncryptedData, []byte) ([]byte, error) {
+	return nil, goerr.New("KMS is not configured")
 }
 
 func cmdServe() *cli.Command {
@@ -77,33 +113,49 @@ func runServe(ctx context.Context, cfg *serveConfig) error {
 	}
 	defer safe.Close(ctx, repo)
 
-	cipher, err := cfg.kms.Configure(ctx)
-	if err != nil {
-		return goerr.Wrap(err, "failed to initialize KMS")
+	var cipher interfaces.Cipher = unavailableCipher{}
+	if cfg.kms.IsSet() {
+		kmsClient, err := cfg.kms.Configure(ctx)
+		if err != nil {
+			return goerr.Wrap(err, "failed to initialize KMS")
+		}
+		defer safe.Close(ctx, kmsClient)
+		cipher = kmsClient
 	}
-	defer safe.Close(ctx, cipher)
 
-	bot := slackadapter.NewBot(cfg.slack.BotToken())
+	var bot interfaces.SlackBot
+	if cfg.slack.BotToken() != "" {
+		bot = slackadapter.NewBot(cfg.slack.BotToken())
+	}
 	oauth := slackadapter.NewOAuth(cfg.slack.ClientID(), cfg.slack.ClientSecret())
 	userClients := slackadapter.NewUserClientFactory()
 
-	access := usecase.NewSlackUserAccess(repo, cipher, userClients)
-	authUC := usecase.NewAuthUseCase(repo, oauth, bot, access, userClients, usecase.AuthConfig{
+	authCfg := usecase.AuthConfig{
 		ClientID:   cfg.slack.ClientID(),
 		BaseURL:    cfg.server.BaseURL(),
 		TeamID:     cfg.slack.TeamID(),
 		SessionTTL: cfg.server.SessionTTL(),
-	})
-	slackUC := usecase.NewSlackEventUseCase(repo, bot, access, usecase.SlackEventConfig{
-		TeamID:        cfg.slack.TeamID(),
-		BaseURL:       cfg.server.BaseURL(),
-		EventClaimTTL: slackEventClaimTTL,
-	})
+	}
+	if cfg.noAuth.Enabled() {
+		authCfg.NoAuthUserID = cfg.noAuth.UserID()
+		logging.Default().Warn("authentication is disabled: every web sign-in becomes this user",
+			"team_id", cfg.slack.TeamID(), "user_id", cfg.noAuth.UserID())
+	}
 
-	handler, err := httpctrl.New(authUC, slackUC, httpctrl.Config{
-		BaseURL:            cfg.server.BaseURL(),
-		SlackSigningSecret: cfg.slack.SigningSecret(),
-	})
+	access := usecase.NewSlackUserAccess(repo, cipher, userClients)
+	authUC := usecase.NewAuthUseCase(repo, oauth, bot, access, userClients, authCfg)
+
+	var httpOpts []httpctrl.Option
+	if cfg.slack.EventsEnabled() {
+		slackUC := usecase.NewSlackEventUseCase(repo, bot, access, usecase.SlackEventConfig{
+			TeamID:        cfg.slack.TeamID(),
+			BaseURL:       cfg.server.BaseURL(),
+			EventClaimTTL: slackEventClaimTTL,
+		})
+		httpOpts = append(httpOpts, httpctrl.WithSlackEvents(slackUC, cfg.slack.SigningSecret()))
+	}
+
+	handler, err := httpctrl.New(authUC, httpctrl.Config{BaseURL: cfg.server.BaseURL()}, httpOpts...)
 	if err != nil {
 		return goerr.Wrap(err, "failed to build HTTP server")
 	}

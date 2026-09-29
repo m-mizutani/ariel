@@ -74,10 +74,55 @@ Slack Events API handlers acknowledge within three seconds and run the rest in
 - In tests, unset environment variables with `os.Unsetenv`: urfave/cli takes an
   empty variable as the flag value and skips the default.
 
+## Web UI changes: E2E tests
+
+A change to the Web UI (anything under `frontend/src/`, or a server change that
+alters what a page does) must come with Playwright E2E tests that cover the
+UI's use cases end to end, not only unit tests.
+
+- Tests live in `frontend/e2e/tests/` and run against the real server
+  (`frontend/playwright.e2e.config.ts` starts `../ariel serve` with
+  `--no-auth U0E2ETEST --repository-backend memory`). Do not mock the API
+  here; the point is to exercise the server and the page together.
+- Cover every use case the user performs on the changed screens, including
+  the failure paths the page shows (see `e2e/tests/login.spec.ts` for sign-in:
+  redirect when signed out, sign-in, reload, sign-out, forged callback,
+  cancelled sign-in).
+- Run them with `task e2e` (builds the binary, then `pnpm e2e`). CI runs the
+  `e2e` job in `.github/workflows/test.yml`; it must pass.
+- `--no-auth` makes every sign-in the given user without Slack. It is accepted
+  only with the in-memory repository; never add a way to enable it with
+  Firestore.
+
+## Web UI changes: screenshots in the pull request
+
+A pull request that changes the Web UI (anything under `frontend/src/` that
+alters what is displayed: screens, states, text, styles) must show Playwright
+screenshots of every affected screen state in its description. A reviewer
+must be able to see the result without running the app.
+
+1. Cover each new or changed screen state with a test in
+   `frontend/e2e/screenshots/states.spec.ts`. Mock the API with `page.route`, wait
+   until the state is visible, and save `screenshots/<name>.png`. Keep the
+   states in step with the screen states listed in the spec.
+2. Run `task screenshots` (`pnpm screenshots` in `frontend/`). The images go to
+   `frontend/screenshots/`, which is not committed.
+3. Run `task screenshots:upload PR=<number>`. It adds the images to the
+   `screenshots` branch under `pr-<number>/` (the branch is never merged) and
+   prints their URLs.
+4. Put the images in the PR description under a "Screenshots" heading, one per
+   state with a label naming the state, using the printed
+   `https://raw.githubusercontent.com/...` URLs.
+
+If the screenshots cannot be taken, say so in the PR description and in the
+report instead of treating the change as verified.
+
 ## Checks before finishing
 
 - `go vet ./...`, `gofmt`, `go test ./...` (with the Firestore emulator)
 - In `frontend/`: `pnpm lint`, `pnpm test`, `pnpm build`
+- For a Web UI change: `task e2e`, `task screenshots`, and the screenshots in
+  the PR description (see the two sections above)
 - Update `docs/setup.md` when flags, environment variables, Slack scopes, IAM
   roles, or Firestore paths change, and `docs/slack-app-manifest.yaml` when
   Slack scopes or events change.

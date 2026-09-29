@@ -112,12 +112,16 @@ ariel serve
 | `--repository-backend` | `ARIEL_REPOSITORY_BACKEND` | `firestore` | | `firestore`, or `memory` for local development (single process only) |
 | `--firestore-project-id` | `ARIEL_FIRESTORE_PROJECT_ID` | | with `firestore` | Google Cloud project of Firestore |
 | `--firestore-database-id` | `ARIEL_FIRESTORE_DATABASE_ID` | `(default)` | | Firestore database ID |
-| `--slack-client-id` | `ARIEL_SLACK_CLIENT_ID` | | yes | Client ID of the Slack app |
-| `--slack-client-secret` | `ARIEL_SLACK_CLIENT_SECRET` | | yes | Client secret of the Slack app |
-| `--slack-signing-secret` | `ARIEL_SLACK_SIGNING_SECRET` | | yes | Signing secret, used to verify Events API requests |
-| `--slack-bot-token` | `ARIEL_SLACK_BOT_TOKEN` | | yes | Bot user OAuth token (`xoxb-`) |
+| `--slack-client-id` | `ARIEL_SLACK_CLIENT_ID` | | yes (not with `--no-auth`) | Client ID of the Slack app |
+| `--slack-client-secret` | `ARIEL_SLACK_CLIENT_SECRET` | | yes (not with `--no-auth`) | Client secret of the Slack app |
+| `--slack-signing-secret` | `ARIEL_SLACK_SIGNING_SECRET` | | yes (with `--no-auth`: together with the bot token, or neither) | Signing secret, used to verify Events API requests |
+| `--slack-bot-token` | `ARIEL_SLACK_BOT_TOKEN` | | yes (with `--no-auth`: together with the signing secret, or neither) | Bot user OAuth token (`xoxb-`) |
 | `--slack-team-id` | `ARIEL_SLACK_TEAM_ID` | | yes | The only workspace Ariel accepts sign-ins and events from |
-| `--kms-key-name` | `ARIEL_KMS_KEY_NAME` | | yes | Cloud KMS key for user tokens. There is no mode without KMS |
+| `--kms-key-name` | `ARIEL_KMS_KEY_NAME` | | yes (not with `--no-auth`) | Cloud KMS key for user tokens |
+| `--no-auth` | `ARIEL_NO_AUTH` | | | Development and E2E only. A Slack user ID (`U...`) of `--slack-team-id`: every web sign-in becomes this user without asking Slack, and no user token is stored. Accepted only with `--repository-backend memory` |
+
+With `--no-auth`, the Slack event endpoint (`/hooks/slack/event`) exists only
+when both the bot token and the signing secret are set.
 
 Google Cloud credentials are read from Application Default Credentials.
 
@@ -135,9 +139,12 @@ Google Cloud credentials are read from Application Default Credentials.
 
 ## Local development
 
-- Backend: `ariel serve --repository-backend memory ...` with the Slack and KMS
-  settings. The Slack app needs a public URL for the OAuth redirect and events;
-  use a tunnel and set `--base-url` to it.
+- Backend with Slack: `ariel serve --repository-backend memory ...` with the
+  Slack and KMS settings. The Slack app needs a public URL for the OAuth
+  redirect and events; use a tunnel and set `--base-url` to it.
+- Backend without Slack: `ariel serve --base-url http://localhost:8080
+  --repository-backend memory --slack-team-id T0123ABCD --no-auth U0123ABCD`.
+  "Sign in with Slack" signs you in as `U0123ABCD` directly.
 - Frontend: `task dev:frontend` starts Vite on port 5173 and forwards `/api` to
   `http://localhost:8080`.
 - Build the frontend before building the binary: `task build:frontend`. The
@@ -153,3 +160,10 @@ Google Cloud credentials are read from Application Default Credentials.
   key name (`projects/*/locations/*/keyRings/*/cryptoKeys/*`), for example with
   `zenv go test ./...`.
 - Frontend: `pnpm test`, `pnpm lint`, and `pnpm build` in `frontend/`.
+- E2E: `task e2e` builds the binary and runs the Playwright tests in
+  `frontend/e2e/tests/` against it, started with `--no-auth` and the in-memory
+  repository. Install the browser once with
+  `pnpm exec playwright install chromium` in `frontend/`.
+- Screenshots for pull requests: `task screenshots` captures every screen state
+  into `frontend/screenshots/`; `task screenshots:upload PR=<number>` publishes
+  them on the `screenshots` branch and prints the URLs to paste into the PR.

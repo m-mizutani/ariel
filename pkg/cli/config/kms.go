@@ -25,6 +25,10 @@ func (x *KMS) Flags() []cli.Flag {
 	}
 }
 
+func (x *KMS) IsSet() bool {
+	return x.keyName != ""
+}
+
 func (x *KMS) Validate() error {
 	if x.keyName == "" {
 		return goerr.New("--kms-key-name is required")
