@@ -1,14 +1,53 @@
+import { readFile } from 'node:fs/promises'
+import { extname, join } from 'node:path'
 import { expect, test, type Page } from '@playwright/test'
 
 // One test per screen state listed in the spec. Each test mocks the API the
 // state depends on, waits for the state to be visible, and saves
 // screenshots/<name>.png.
 
+const distDir = join(process.cwd(), 'dist')
+const contentTypes: Record<string, string> = {
+  '.html': 'text/html',
+  '.js': 'text/javascript',
+  '.css': 'text/css',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+}
+
+// Serve the built SPA the way the Go server does: a file when it exists,
+// index.html otherwise. Tests register their API mocks afterwards, and
+// Playwright tries the most recently registered route first.
+test.beforeEach(async ({ page }) => {
+  await page.route('http://ariel.test/**', async (route) => {
+    const path = new URL(route.request().url()).pathname
+    if (path.startsWith('/api/')) {
+      await route.fulfill({ status: 404, contentType: 'application/json', body: '{"error":"not_found"}' })
+      return
+    }
+    const file = path === '/' ? 'index.html' : path.slice(1)
+    try {
+      const body = await readFile(join(distDir, file))
+      await route.fulfill({ status: 200, contentType: contentTypes[extname(file)] ?? 'application/octet-stream', body })
+    } catch {
+      const body = await readFile(join(distDir, 'index.html'))
+      await route.fulfill({ status: 200, contentType: 'text/html', body })
+    }
+  })
+})
+
 // Resolved against the working directory, which is frontend/ for `pnpm screenshots`.
 const shot = (name: string) => ({ path: `screenshots/${name}.png`, fullPage: true })
 
 const me = (connected: boolean) =>
   JSON.stringify({ team_id: 'T0123ABCD', user_id: 'U0123ABCD', name: 'Alice Example', slack_connected: connected })
+
+// Some states are captured while a request is still pending, so those route
+// handlers never answer. Drop them after each test; otherwise closing the
+// page waits for them forever.
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: 'ignoreErrors' })
+})
 
 async function mockMe(page: Page, status: number, body: string) {
   await page.route('**/api/auth/me', (route) =>
@@ -29,11 +68,13 @@ test('login: initial', async ({ page }) => {
 
 test('login: redirecting to Slack', async ({ page }) => {
   await signedOut(page)
-  // Keep the navigation to /api/auth/login pending so the page stays on the
-  // redirecting state.
-  await page.route('**/api/auth/login', () => new Promise(() => {}))
+  // Answer the navigation to /api/auth/login with 204: the browser keeps the
+  // current document, so the page stays in its redirecting state. A request
+  // left pending instead keeps the navigation open and blocks the test.
+  await page.route('**/api/auth/login', (route) => route.fulfill({ status: 204 }))
   await page.goto('/login')
-  await page.getByRole('button', { name: 'Sign in with Slack' }).click()
+  // The click starts a navigation that never completes; do not wait for it.
+  await page.getByRole('button', { name: 'Sign in with Slack' }).click({ noWaitAfter: true })
   await expect(page.getByRole('button', { name: 'Redirecting to Slack…' })).toBeDisabled()
   await page.screenshot(shot('login-redirecting'))
 })
