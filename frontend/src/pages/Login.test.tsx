@@ -16,7 +16,7 @@ function renderLogin(path: string) {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<Login />} />
-          <Route path="/" element={<p>home page</p>} />
+          <Route path="/settings" element={<p>settings page</p>} />
         </Routes>
       </AuthProvider>
     </MemoryRouter>,
@@ -54,7 +54,7 @@ describe('Login', () => {
     expect(screen.getByRole('button', { name: 'Redirecting to Slack…' })).toBeDisabled()
   })
 
-  it('sends a signed-in user to the home page', async () => {
+  it('sends a signed-in user to the settings page', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(
@@ -65,6 +65,6 @@ describe('Login', () => {
       ),
     )
     renderLogin('/login')
-    expect(await screen.findByText('home page')).toBeInTheDocument()
+    expect(await screen.findByText('settings page')).toBeInTheDocument()
   })
 })

@@ -72,7 +72,7 @@ func TestAuthCallback_Success(t *testing.T) {
 	resp := w.Result()
 
 	gt.Number(t, resp.StatusCode).Equal(http.StatusFound)
-	gt.String(t, resp.Header.Get("Location")).Equal("/")
+	gt.String(t, resp.Header.Get("Location")).Equal("/settings")
 	gt.Value(t, authUC.callbackCodes).Equal([]string{"auth-code"})
 
 	id := findCookie(resp, "ariel_session_id")
@@ -91,6 +91,21 @@ func TestAuthCallback_Success(t *testing.T) {
 	state := findCookie(resp, "ariel_oauth_state")
 	gt.Value(t, state).NotNil().Required()
 	gt.Bool(t, state.MaxAge < 0).True()
+}
+
+func TestAuthCallback_RedirectIgnoresRequest(t *testing.T) {
+	authUC := newFakeAuthUseCase()
+	srv := newTestServer(t, "https://ariel.example.com", authUC, &fakeSlackEventUseCase{})
+
+	r := callbackRequest("code=auth-code&state=s1&next=https%3A%2F%2Fevil.example%2F&redirect_uri=%2F%2Fevil.example", "s1")
+	r.Header.Set("Referer", "https://evil.example/")
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, r)
+	resp := w.Result()
+
+	gt.Number(t, resp.StatusCode).Equal(http.StatusFound)
+	gt.String(t, resp.Header.Get("Location")).Equal("/settings")
+	gt.Value(t, findCookie(resp, "ariel_session_id")).NotNil()
 }
 
 func TestAuthCallback_Failures(t *testing.T) {

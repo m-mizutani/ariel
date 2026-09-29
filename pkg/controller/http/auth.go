@@ -22,6 +22,10 @@ const (
 
 	loginErrorAccessDenied = "access_denied"
 	loginErrorFailed       = "login_failed"
+
+	// postLoginPath is where a successful sign-in lands. It is fixed, never
+	// taken from the request, so the callback cannot redirect off-site.
+	postLoginPath = "/settings"
 )
 
 type meResponse struct {
@@ -129,7 +133,7 @@ func (s *Server) authCallbackHandler(w http.ResponseWriter, r *http.Request) {
 	s.setCookie(w, sessionIDCookieName, string(session.ID), "/", 0, session.ExpiresAt)
 	s.setCookie(w, sessionSecretCookieName, string(secret), "/", 0, session.ExpiresAt)
 
-	http.Redirect(w, r, "/", http.StatusFound)
+	http.Redirect(w, r, postLoginPath, http.StatusFound)
 }
 
 func (s *Server) authLogoutHandler(w http.ResponseWriter, r *http.Request) {

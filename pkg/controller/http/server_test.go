@@ -164,7 +164,7 @@ func decodeJSON(t *testing.T, body io.Reader) map[string]any {
 func TestServer_SPA(t *testing.T) {
 	srv := newTestServer(t, "https://ariel.example.com", newFakeAuthUseCase(), &fakeSlackEventUseCase{})
 
-	for _, path := range []string{"/", "/login"} {
+	for _, path := range []string{"/", "/login", "/settings"} {
 		t.Run(path, func(t *testing.T) {
 			w := httptest.NewRecorder()
 			srv.ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, nil))
