@@ -27,6 +27,14 @@ go.work.sum
 # env file
 .env
 
+# Binary built by `task build`
+/ariel
+
+# Frontend build output (embedded into the binary) and dependencies
+frontend/dist/*
+!frontend/dist/.gitkeep
+frontend/node_modules/
+
 # Editor/IDE
 # .idea/
 # .vscode/

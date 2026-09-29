@@ -1,0 +1,67 @@
+name: Test
+
+on:
+  push:
+
+jobs:
+  go:
+    name: go (vet + test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: "go.mod"
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Start Firestore emulator
+        run: |
+          docker run -d --name firestore-emulator -p 28615:28615 \
+            google/cloud-sdk@sha256:c2b7406c44f3aeaf2c90854337c65de4ac7a7ab07e2ab592eb8df140af1129b9 \
+            gcloud emulators firestore start --host-port=0.0.0.0:28615
+          for i in $(seq 1 90); do
+            if curl -s http://127.0.0.1:28615/ >/dev/null 2>&1; then
+              echo "emulator ready"; exit 0
+            fi
+            sleep 1
+          done
+          echo "firestore emulator did not become ready" >&2
+          docker logs firestore-emulator || true
+          exit 1
+
+      - name: go vet
+        run: go vet ./...
+
+      # The Cloud KMS tests are skipped here because TEST_GCP_KMS is not set.
+      - name: go test
+        env:
+          FIRESTORE_EMULATOR_HOST: 127.0.0.1:28615
+        run: go test ./...
+
+  frontend:
+    name: frontend (lint + test + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      # Install pnpm before setup-node so the version pinned in
+      # frontend/package.json (packageManager) is used.
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          package_json_file: frontend/package.json
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm build

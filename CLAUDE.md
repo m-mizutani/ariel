@@ -1,0 +1,84 @@
+# CLAUDE.md
+
+Ariel is an AI agent that works as a Slack bot and a web UI. The backend is Go,
+the frontend is React + TypeScript (Vite, pnpm) embedded into the Go binary.
+The code layout follows secmon-lab/hecatoncheires, with a REST API instead of
+GraphQL.
+
+## Layers
+
+- `pkg/cli/` — flags, environment variables, dependency wiring, the `serve` command.
+- `pkg/controller/http/` — routing, cookies, Slack signature verification, JSON
+  responses, SPA serving. Parses input and calls a usecase; no business logic,
+  no repository or external API calls.
+- `pkg/usecase/` — business operations. `SlackUserAccess` is the only component
+  that reads, writes, encrypts, or decrypts Slack user tokens.
+- `pkg/domain/` — models (`model/`, also the Firestore document format) and
+  interfaces (`interfaces/`). No I/O.
+- `pkg/repository/{firestore,memory}/` — persistence.
+- `pkg/adapter/{slack,kms}/` — thin wrappers that implement `domain/interfaces`
+  over an external API. No business decisions.
+- `pkg/utils/` — `logging`, `errutil`, `async`, `safe`.
+
+Slack Events API handlers acknowledge within three seconds and run the rest in
+`async.Dispatch`.
+
+## Per-user isolation
+
+- Data that belongs to a user lives under `teams/{TeamID}/users/{UserID}`. Build
+  those paths only from a `model.UserKey`.
+- Repository methods for user data take the user key; do not add methods that
+  return more than one user's data (lists, collection-group queries).
+- The user key of a request comes only from a verified Slack event or a verified
+  web session. A user's token is used only for that same user's requests.
+- The KMS additional authenticated data of a token is
+  `ariel:slack-user-token:v1:{TeamID}:{UserID}`. Changing it makes stored tokens
+  undecryptable; add a new version instead.
+
+## Conventions
+
+- Errors: `github.com/m-mizutani/goerr/v2`; wrap with `goerr.Wrap` and attach
+  identifiers with `goerr.V`. Never attach tokens, secrets, or message text.
+  Discriminate with `errors.Is` / `errors.As`, never by message text.
+- An error that is returned is not logged. An error that stops propagating (an
+  HTTP handler writing the response, an `async.Dispatch` tail, `cli.Run`) is
+  recorded once with `errutil.Handle`, whatever its severity. Tag normal-flow
+  errors with `errutil.TagBenign`.
+- HTTP error bodies carry a fixed code only (`{"error":"unauthenticated"}`).
+- Logging: `logging.From(ctx)`; never the global `slog` functions.
+- Close resources with `safe.Close(ctx, c)`; start background work with
+  `async.Dispatch`.
+- Firestore: store models directly (`Set(ctx, x)` / `DataTo(&x)`); no struct
+  tags, no converter types, no composite indexes, hierarchy by subcollections.
+  Repositories call `Validate()` before writing and never set timestamps; the
+  usecase owns `CreatedAt` / `UpdatedAt`.
+- Multiple instances run concurrently. State shared across requests goes to
+  Firestore; no package-level maps or caches of business data.
+- Default values come from CLI flags, not from internal functions.
+- Source comments and string literals are English. Unexport everything not used
+  by another package; test-only access goes through `export_test.go`.
+
+## Tests
+
+- Assertions use `github.com/m-mizutani/gt`. Test packages are `{name}_test`;
+  `xyz.go` is tested in `xyz_test.go`.
+- Repository tests live in `pkg/repository/*_test.go` and run the same body
+  against memory and Firestore via `runRepositoryTest`. The Firestore side uses
+  the emulator on `127.0.0.1:28615` (`task test:firestore`) or
+  `TEST_FIRESTORE_PROJECT_ID`; it never skips.
+- Cloud KMS tests run only when `TEST_GCP_KMS` holds a key name
+  (`zenv go test ./...`). `t.Skip` is allowed only for a missing environment
+  variable.
+- Usecase tests use the memory repository and hand-written fakes, and assert
+  stored data and every Slack call, not only the returned error.
+- In tests, unset environment variables with `os.Unsetenv`: urfave/cli takes an
+  empty variable as the flag value and skips the default.
+
+## Checks before finishing
+
+- `go vet ./...`, `gofmt`, `go test ./...` (with the Firestore emulator)
+- In `frontend/`: `pnpm lint`, `pnpm test`, `pnpm build`
+- Update `docs/setup.md` when flags, environment variables, Slack scopes, IAM
+  roles, or Firestore paths change, and `docs/slack-app-manifest.yaml` when
+  Slack scopes or events change.
+- Commit messages: one line, `<type>: <subject>`, English.

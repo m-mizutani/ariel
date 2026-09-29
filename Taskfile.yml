@@ -1,0 +1,55 @@
+# https://taskfile.dev
+
+version: "3"
+
+tasks:
+  build:
+    desc: "Build the frontend and the ariel binary"
+    cmds:
+      - task: build:frontend
+      - go build -o ariel .
+
+  build:frontend:
+    desc: "Build the frontend into frontend/dist (embedded into the Go binary)"
+    dir: frontend
+    cmds:
+      - pnpm install --frozen-lockfile
+      - pnpm build
+
+  dev:frontend:
+    desc: "Run the Vite dev server on port 5173, forwarding /api to localhost:8080"
+    dir: frontend
+    cmds:
+      - pnpm dev
+
+  lint:frontend:
+    desc: "Run ESLint on the frontend"
+    dir: frontend
+    cmds:
+      - pnpm lint
+
+  test:
+    desc: "Run the Go tests. The Firestore repository tests need the emulator (task test:firestore) or TEST_FIRESTORE_PROJECT_ID."
+    cmds:
+      - go test ./...
+
+  test:firestore:
+    desc: "Run the Go tests against a Firestore emulator in Docker"
+    cmds:
+      - |
+        docker rm -f ariel-firestore-emulator >/dev/null 2>&1 || true
+        docker run -d --name ariel-firestore-emulator -p 28615:28615 \
+          google/cloud-sdk@sha256:c2b7406c44f3aeaf2c90854337c65de4ac7a7ab07e2ab592eb8df140af1129b9 \
+          gcloud emulators firestore start --host-port=0.0.0.0:28615
+        trap 'docker rm -f ariel-firestore-emulator >/dev/null 2>&1' EXIT
+        i=0
+        until curl -s http://127.0.0.1:28615/ >/dev/null 2>&1; do
+          i=$((i+1))
+          if [ "$i" -ge 90 ]; then
+            echo "firestore emulator did not become ready" >&2
+            docker logs ariel-firestore-emulator || true
+            exit 1
+          fi
+          sleep 1
+        done
+        FIRESTORE_EMULATOR_HOST=127.0.0.1:28615 go test ./...

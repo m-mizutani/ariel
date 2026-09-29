@@ -1,0 +1,40 @@
+# Slack app manifest for Ariel.
+#
+# Replace ariel.example.com with the public URL of your server (the value of
+# ARIEL_BASE_URL), then create the app at https://api.slack.com/apps with
+# "Create New App" -> "From an app manifest". See docs/setup.md.
+_metadata:
+  major_version: 2
+  minor_version: 1
+display_information:
+  name: Ariel
+  description: An AI agent that works in Slack and on the web.
+features:
+  bot_user:
+    display_name: ariel
+    always_online: true
+oauth_config:
+  redirect_urls:
+    - https://ariel.example.com/api/auth/callback
+  scopes:
+    bot:
+      # Receive app_mention events.
+      - app_mentions:read
+      # Post replies (chat.postMessage) and login prompts (chat.postEphemeral).
+      - chat:write
+      # Read the display name of a user who signs in (users.info).
+      - users:read
+    user:
+      # Requested from each user at sign-in; used to search messages on the
+      # user's behalf (search.messages accepts only user tokens).
+      - search:read
+settings:
+  event_subscriptions:
+    request_url: https://ariel.example.com/hooks/slack/event
+    bot_events:
+      - app_mention
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  # Ariel stores long-lived user tokens. Token rotation cannot be turned off
+  # once enabled, so keep it disabled.
+  token_rotation_enabled: false
