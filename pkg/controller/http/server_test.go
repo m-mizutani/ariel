@@ -180,7 +180,7 @@ func TestServer_SPA(t *testing.T) {
 		gt.String(t, w.Body.String()).Equal("console.log('app')")
 	})
 
-	for _, path := range []string{"/api/foo", "/api/auth/unknown"} {
+	for _, path := range []string{"/api/foo", "/api/v1/foo", "/api/v1/auth/unknown"} {
 		t.Run("unknown api "+path, func(t *testing.T) {
 			w := httptest.NewRecorder()
 			srv.ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, nil))
@@ -188,4 +188,35 @@ func TestServer_SPA(t *testing.T) {
 			gt.Value(t, decodeJSON(t, w.Body)["error"]).Equal("not_found")
 		})
 	}
+}
+
+// The API moved under /api/v1 without keeping the old paths.
+func TestServer_PathsBeforeV1AreNotFound(t *testing.T) {
+	authUC := newFakeAuthUseCase()
+	srv, err := httpctrl.New(authUC, httpctrl.Config{BaseURL: "https://ariel.example.com", Static: testStatic},
+		httpctrl.WithGoogleWorkspace(newFakeGoogleWorkspaceUseCase()), httpctrl.WithNotion(newFakeNotionUseCase()))
+	gt.NoError(t, err).Required()
+
+	for _, tc := range []struct{ method, path string }{
+		{http.MethodGet, "/api/auth/login"},
+		{http.MethodGet, "/api/auth/callback?code=c&state=s"},
+		{http.MethodPost, "/api/auth/logout"},
+		{http.MethodGet, "/api/auth/me"},
+		{http.MethodGet, "/api/integrations/google-workspace"},
+		{http.MethodGet, "/api/integrations/google-workspace/connect"},
+		{http.MethodGet, "/api/integrations/google-workspace/callback?code=c&state=s"},
+		{http.MethodPost, "/api/integrations/google-workspace/disconnect"},
+		{http.MethodGet, "/api/integrations/notion"},
+		{http.MethodGet, "/api/integrations/notion/connect"},
+		{http.MethodGet, "/api/integrations/notion/callback?code=c&state=s"},
+		{http.MethodPost, "/api/integrations/notion/disconnect"},
+	} {
+		t.Run(tc.method+" "+tc.path, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			srv.ServeHTTP(w, withSession(httptest.NewRequest(tc.method, tc.path, nil), authUC))
+			gt.Number(t, w.Code).Equal(http.StatusNotFound)
+			gt.Value(t, decodeJSON(t, w.Body)["error"]).Equal("not_found")
+		})
+	}
+	gt.Array(t, authUC.callbackCodes).Length(0)
 }

@@ -14,6 +14,13 @@ export const e2eUserID = 'U0E2ETEST'
 // endpoints; the tests stop the browser before it reaches Google.
 export const e2eGoogleClientID = 'e2e-client.apps.googleusercontent.com'
 
+// Notion is served by e2e/fake-notion.mjs, so a connection runs from the
+// authorization to the token exchange and the revocation.
+export const fakeNotionURL = 'http://127.0.0.1:18082'
+export const e2eNotionClientID = 'e2e-notion-client'
+const e2eNotionClientSecret = 'e2e-notion-secret'
+export const e2eNotionWorkspaceID = '0f4a2b1c-3d4e-4f50-8a6b-7c8d9e0f1a2b'
+
 export default defineConfig({
   testDir: './e2e/tests',
   outputDir: './test-results/e2e',
@@ -25,20 +32,37 @@ export default defineConfig({
     ...devices['Desktop Chrome'],
     baseURL,
   },
-  webServer: {
-    command: [
-      binary,
-      '--log-format json',
-      'serve',
-      `--addr 127.0.0.1:${port}`,
-      `--base-url ${baseURL}`,
-      '--repository-backend memory',
-      `--slack-team-id ${e2eTeamID}`,
-      `--no-auth ${e2eUserID}`,
-      `--google-client-id ${e2eGoogleClientID}`,
-      '--google-client-secret e2e-client-secret',
-    ].join(' '),
-    url: `${baseURL}/login`,
-    reuseExistingServer: false,
-  },
+  webServer: [
+    {
+      command: 'node e2e/fake-notion.mjs',
+      env: {
+        FAKE_NOTION_PORT: '18082',
+        FAKE_NOTION_CLIENT_ID: e2eNotionClientID,
+        FAKE_NOTION_CLIENT_SECRET: e2eNotionClientSecret,
+        FAKE_NOTION_WORKSPACE_ID: e2eNotionWorkspaceID,
+      },
+      url: `${fakeNotionURL}/__control`,
+      reuseExistingServer: false,
+    },
+    {
+      command: [
+        binary,
+        '--log-format json',
+        'serve',
+        `--addr 127.0.0.1:${port}`,
+        `--base-url ${baseURL}`,
+        '--repository-backend memory',
+        `--slack-team-id ${e2eTeamID}`,
+        `--no-auth ${e2eUserID}`,
+        `--google-client-id ${e2eGoogleClientID}`,
+        '--google-client-secret e2e-client-secret',
+        `--notion-client-id ${e2eNotionClientID}`,
+        `--notion-client-secret ${e2eNotionClientSecret}`,
+        `--notion-workspace-id ${e2eNotionWorkspaceID}`,
+        `--notion-api-url ${fakeNotionURL}`,
+      ].join(' '),
+      url: `${baseURL}/login`,
+      reuseExistingServer: false,
+    },
+  ],
 })

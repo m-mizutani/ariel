@@ -15,7 +15,7 @@ features:
     always_online: true
 oauth_config:
   redirect_urls:
-    - https://ariel.example.com/api/auth/callback
+    - https://ariel.example.com/api/v1/auth/callback
   scopes:
     bot:
       # Receive app_mention events.

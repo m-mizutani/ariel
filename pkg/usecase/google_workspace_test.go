@@ -17,7 +17,7 @@ import (
 	"github.com/m-mizutani/ariel/pkg/usecase"
 )
 
-const googleCallbackURL = "https://ariel.example.com/api/integrations/google-workspace/callback"
+const googleCallbackURL = "https://ariel.example.com/api/v1/integrations/google-workspace/callback"
 
 type authorizeCall struct {
 	State       string

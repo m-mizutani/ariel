@@ -33,7 +33,7 @@ func TestAuthLogin(t *testing.T) {
 			srv := newTestServer(t, tc.baseURL, authUC, &fakeSlackEventUseCase{})
 
 			w := httptest.NewRecorder()
-			srv.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/auth/login", nil))
+			srv.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/v1/auth/login", nil))
 			resp := w.Result()
 
 			gt.Number(t, resp.StatusCode).Equal(http.StatusFound)
@@ -56,7 +56,7 @@ func TestAuthLogin(t *testing.T) {
 }
 
 func callbackRequest(query, stateCookie string) *http.Request {
-	r := httptest.NewRequest(http.MethodGet, "/api/auth/callback?"+query, nil)
+	r := httptest.NewRequest(http.MethodGet, "/api/v1/auth/callback?"+query, nil)
 	if stateCookie != "" {
 		r.AddCookie(&http.Cookie{Name: "ariel_oauth_state", Value: stateCookie})
 	}
@@ -158,7 +158,7 @@ func TestAuthMe(t *testing.T) {
 		srv := newTestServer(t, "https://ariel.example.com", authUC, &fakeSlackEventUseCase{})
 
 		w := httptest.NewRecorder()
-		srv.ServeHTTP(w, withSession(httptest.NewRequest(http.MethodGet, "/api/auth/me", nil), authUC))
+		srv.ServeHTTP(w, withSession(httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil), authUC))
 
 		gt.Number(t, w.Code).Equal(http.StatusOK)
 		body := decodeJSON(t, w.Body)
@@ -173,7 +173,7 @@ func TestAuthMe(t *testing.T) {
 	t.Run("no cookie", func(t *testing.T) {
 		srv := newTestServer(t, "https://ariel.example.com", newFakeAuthUseCase(), &fakeSlackEventUseCase{})
 		w := httptest.NewRecorder()
-		srv.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/auth/me", nil))
+		srv.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil))
 
 		gt.Number(t, w.Code).Equal(http.StatusUnauthorized)
 		gt.Value(t, decodeJSON(t, w.Body)["error"]).Equal("unauthenticated")
@@ -182,7 +182,7 @@ func TestAuthMe(t *testing.T) {
 	t.Run("wrong secret", func(t *testing.T) {
 		authUC := newFakeAuthUseCase()
 		srv := newTestServer(t, "https://ariel.example.com", authUC, &fakeSlackEventUseCase{})
-		r := httptest.NewRequest(http.MethodGet, "/api/auth/me", nil)
+		r := httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
 		r.AddCookie(&http.Cookie{Name: "ariel_session_id", Value: string(authUC.session.ID)})
 		r.AddCookie(&http.Cookie{Name: "ariel_session_secret", Value: "wrong"})
 
@@ -198,7 +198,7 @@ func TestAuthMe(t *testing.T) {
 		srv := newTestServer(t, "https://ariel.example.com", authUC, &fakeSlackEventUseCase{})
 
 		w := httptest.NewRecorder()
-		srv.ServeHTTP(w, withSession(httptest.NewRequest(http.MethodGet, "/api/auth/me", nil), authUC))
+		srv.ServeHTTP(w, withSession(httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil), authUC))
 		gt.Number(t, w.Code).Equal(http.StatusInternalServerError)
 		gt.Value(t, decodeJSON(t, w.Body)["error"]).Equal("internal_error")
 	})
@@ -209,7 +209,7 @@ func TestAuthMe(t *testing.T) {
 		srv := newTestServer(t, "https://ariel.example.com", authUC, &fakeSlackEventUseCase{})
 
 		w := httptest.NewRecorder()
-		srv.ServeHTTP(w, withSession(httptest.NewRequest(http.MethodGet, "/api/auth/me", nil), authUC))
+		srv.ServeHTTP(w, withSession(httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil), authUC))
 		gt.Number(t, w.Code).Equal(http.StatusInternalServerError)
 		gt.Value(t, decodeJSON(t, w.Body)["error"]).Equal("internal_error")
 	})
@@ -230,7 +230,7 @@ func TestAuthLogout(t *testing.T) {
 		srv := newTestServer(t, "https://ariel.example.com", authUC, &fakeSlackEventUseCase{})
 
 		w := httptest.NewRecorder()
-		srv.ServeHTTP(w, withSession(httptest.NewRequest(http.MethodPost, "/api/auth/logout", nil), authUC))
+		srv.ServeHTTP(w, withSession(httptest.NewRequest(http.MethodPost, "/api/v1/auth/logout", nil), authUC))
 		resp := w.Result()
 
 		gt.Number(t, resp.StatusCode).Equal(http.StatusOK)
@@ -246,7 +246,7 @@ func TestAuthLogout(t *testing.T) {
 		srv := newTestServer(t, "https://ariel.example.com", authUC, &fakeSlackEventUseCase{})
 
 		w := httptest.NewRecorder()
-		srv.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/auth/logout", nil))
+		srv.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/v1/auth/logout", nil))
 		resp := w.Result()
 
 		gt.Number(t, resp.StatusCode).Equal(http.StatusOK)
@@ -260,7 +260,7 @@ func TestAuthLogout(t *testing.T) {
 		srv := newTestServer(t, "https://ariel.example.com", authUC, &fakeSlackEventUseCase{})
 
 		w := httptest.NewRecorder()
-		srv.ServeHTTP(w, withSession(httptest.NewRequest(http.MethodPost, "/api/auth/logout", nil), authUC))
+		srv.ServeHTTP(w, withSession(httptest.NewRequest(http.MethodPost, "/api/v1/auth/logout", nil), authUC))
 		resp := w.Result()
 
 		gt.Number(t, resp.StatusCode).Equal(http.StatusInternalServerError)

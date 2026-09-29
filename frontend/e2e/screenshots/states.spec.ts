@@ -34,6 +34,8 @@ test.beforeEach(async ({ page }) => {
       await route.fulfill({ status: 200, contentType: 'text/html', body })
     }
   })
+  // Notion is not connected unless a test mocks its status.
+  await mockNotion(page, 200, notionNotConnected)
 })
 
 // Resolved against the working directory, which is frontend/ for `pnpm screenshots`.
@@ -50,7 +52,7 @@ test.afterEach(async ({ page }) => {
 })
 
 async function mockMe(page: Page, status: number, body: string) {
-  await page.route('**/api/auth/me', (route) =>
+  await page.route('**/api/v1/auth/me', (route) =>
     route.fulfill({ status, contentType: 'application/json', body }),
   )
 }
@@ -63,7 +65,7 @@ const googleNotConnected = { available: true, connected: false, email: '' }
 const googleConnected = { available: true, connected: true, email: 'alice@example.com' }
 
 async function mockGoogle(page: Page, status: number, body: object) {
-  await page.route('**/api/integrations/google-workspace', (route) =>
+  await page.route('**/api/v1/integrations/google-workspace', (route) =>
     route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) }),
   )
 }
@@ -75,6 +77,29 @@ async function settingsWithGoogle(page: Page, google: object) {
   await mockGoogle(page, 200, google)
 }
 
+const notionNotConnected = {
+  available: true,
+  connected: false,
+  needs_reconnect: false,
+  user_name: '',
+  workspace_name: '',
+}
+const notionConnected = { ...notionNotConnected, connected: true, user_name: 'Alice Example', workspace_name: 'Acme' }
+
+async function mockNotion(page: Page, status: number, body: object) {
+  await page.route('**/api/v1/integrations/notion', (route) =>
+    route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) }),
+  )
+}
+
+// The settings page of a user linked to Slack, without Google Workspace, and
+// with the given Notion status.
+async function settingsWithNotion(page: Page, notion: object) {
+  await mockMe(page, 200, me(true))
+  await mockGoogle(page, 200, googleNotConnected)
+  await mockNotion(page, 200, notion)
+}
+
 test('login: initial', async ({ page }) => {
   await signedOut(page)
   await page.goto('/login')
@@ -84,10 +109,10 @@ test('login: initial', async ({ page }) => {
 
 test('login: redirecting to Slack', async ({ page }) => {
   await signedOut(page)
-  // Answer the navigation to /api/auth/login with 204: the browser keeps the
+  // Answer the navigation to /api/v1/auth/login with 204: the browser keeps the
   // current document, so the page stays in its redirecting state. A request
   // left pending instead keeps the navigation open and blocks the test.
-  await page.route('**/api/auth/login', (route) => route.fulfill({ status: 204 }))
+  await page.route('**/api/v1/auth/login', (route) => route.fulfill({ status: 204 }))
   await page.goto('/login')
   // The click starts a navigation that never completes; do not wait for it.
   await page.getByRole('button', { name: 'Sign in with Slack' }).click({ noWaitAfter: true })
@@ -110,7 +135,7 @@ test('login: failed', async ({ page }) => {
 })
 
 test('sign-in check: loading', async ({ page }) => {
-  await page.route('**/api/auth/me', () => new Promise(() => {}))
+  await page.route('**/api/v1/auth/me', () => new Promise(() => {}))
   await page.goto('/')
   await expect(page.getByText('Loading…')).toBeVisible()
   await page.screenshot(shot('check-loading'))
@@ -143,7 +168,7 @@ test('settings: connecting Slack', async ({ page }) => {
   await mockMe(page, 200, me(false))
   await mockGoogle(page, 200, googleNotConnected)
   // See 'login: redirecting to Slack': a 204 keeps the current document.
-  await page.route('**/api/auth/login', (route) => route.fulfill({ status: 204 }))
+  await page.route('**/api/v1/auth/login', (route) => route.fulfill({ status: 204 }))
   await page.goto('/settings')
   await page.getByRole('button', { name: 'Connect Slack' }).click({ noWaitAfter: true })
   await expect(page.getByRole('button', { name: 'Redirecting to Slack…' })).toBeDisabled()
@@ -153,7 +178,7 @@ test('settings: connecting Slack', async ({ page }) => {
 test('settings: signing out', async ({ page }) => {
   await mockMe(page, 200, me(true))
   await mockGoogle(page, 200, googleNotConnected)
-  await page.route('**/api/auth/logout', () => new Promise(() => {}))
+  await page.route('**/api/v1/auth/logout', () => new Promise(() => {}))
   await page.goto('/settings')
   await page.getByRole('button', { name: 'Sign out' }).click()
   await expect(page.getByRole('button', { name: 'Signing out…' })).toBeDisabled()
@@ -163,7 +188,7 @@ test('settings: signing out', async ({ page }) => {
 test('settings: sign-out failed', async ({ page }) => {
   await mockMe(page, 200, me(true))
   await mockGoogle(page, 200, googleNotConnected)
-  await page.route('**/api/auth/logout', (route) =>
+  await page.route('**/api/v1/auth/logout', (route) =>
     route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"internal_error"}' }),
   )
   await page.goto('/settings')
@@ -176,7 +201,7 @@ const googleRow = (page: Page) => page.getByRole('listitem', { name: 'Google Wor
 
 test('settings: Google Workspace status being checked', async ({ page }) => {
   await mockMe(page, 200, me(true))
-  await page.route('**/api/integrations/google-workspace', () => new Promise(() => {}))
+  await page.route('**/api/v1/integrations/google-workspace', () => new Promise(() => {}))
   await page.goto('/settings')
   await expect(googleRow(page).getByText('Checking…')).toBeVisible()
   await page.screenshot(shot('settings-google-checking'))
@@ -207,7 +232,7 @@ test('settings: Google Workspace not connected', async ({ page }) => {
 test('settings: connecting Google Workspace', async ({ page }) => {
   await settingsWithGoogle(page, googleNotConnected)
   // See 'login: redirecting to Slack': a 204 keeps the current document.
-  await page.route('**/api/integrations/google-workspace/connect', (route) => route.fulfill({ status: 204 }))
+  await page.route('**/api/v1/integrations/google-workspace/connect', (route) => route.fulfill({ status: 204 }))
   await page.goto('/settings')
   await page.getByRole('button', { name: 'Connect Google Workspace' }).click({ noWaitAfter: true })
   await expect(page.getByRole('button', { name: 'Redirecting to Google Workspace…' })).toBeDisabled()
@@ -223,7 +248,7 @@ test('settings: Google Workspace connected', async ({ page }) => {
 
 test('settings: disconnecting Google Workspace', async ({ page }) => {
   await settingsWithGoogle(page, googleConnected)
-  await page.route('**/api/integrations/google-workspace/disconnect', () => new Promise(() => {}))
+  await page.route('**/api/v1/integrations/google-workspace/disconnect', () => new Promise(() => {}))
   await page.goto('/settings')
   await page.getByRole('button', { name: 'Disconnect Google Workspace' }).click()
   await expect(page.getByRole('button', { name: 'Disconnecting…' })).toBeDisabled()
@@ -232,7 +257,7 @@ test('settings: disconnecting Google Workspace', async ({ page }) => {
 
 test('settings: disconnecting Google Workspace failed', async ({ page }) => {
   await settingsWithGoogle(page, googleConnected)
-  await page.route('**/api/integrations/google-workspace/disconnect', (route) =>
+  await page.route('**/api/v1/integrations/google-workspace/disconnect', (route) =>
     route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"internal_error"}' }),
   )
   await page.goto('/settings')
@@ -251,6 +276,99 @@ for (const [result, name, text] of [
   test(`settings: Google Workspace connection result ${result}`, async ({ page }) => {
     await settingsWithGoogle(page, result === 'connected' ? googleConnected : googleNotConnected)
     await page.goto(`/settings?google_workspace=${result}`)
+    await expect(page.getByText(text)).toBeVisible()
+    await page.screenshot(shot(name))
+  })
+}
+
+const notionRow = (page: Page) => page.getByRole('listitem', { name: 'Notion' })
+
+test('settings: Notion status being checked', async ({ page }) => {
+  await mockMe(page, 200, me(true))
+  await mockGoogle(page, 200, googleNotConnected)
+  await page.route('**/api/v1/integrations/notion', () => new Promise(() => {}))
+  await page.goto('/settings')
+  await expect(notionRow(page).getByText('Checking…')).toBeVisible()
+  await page.screenshot(shot('settings-notion-checking'))
+})
+
+test('settings: Notion status check failed', async ({ page }) => {
+  await mockMe(page, 200, me(true))
+  await mockGoogle(page, 200, googleNotConnected)
+  await mockNotion(page, 500, { error: 'internal_error' })
+  await page.goto('/settings')
+  await expect(notionRow(page).getByRole('button', { name: 'Check Notion again' })).toBeVisible()
+  await page.screenshot(shot('settings-notion-check-failed'))
+})
+
+test('settings: Notion not available', async ({ page }) => {
+  await settingsWithNotion(page, { ...notionNotConnected, available: false })
+  await page.goto('/settings')
+  await expect(notionRow(page).getByText('Not available')).toBeVisible()
+  await page.screenshot(shot('settings-notion-unavailable'))
+})
+
+test('settings: Notion not connected', async ({ page }) => {
+  await settingsWithNotion(page, notionNotConnected)
+  await page.goto('/settings')
+  await expect(page.getByRole('button', { name: 'Connect Notion' })).toBeEnabled()
+  await page.screenshot(shot('settings-notion-not-connected'))
+})
+
+test('settings: connecting Notion', async ({ page }) => {
+  await settingsWithNotion(page, notionNotConnected)
+  // See 'login: redirecting to Slack': a 204 keeps the current document.
+  await page.route('**/api/v1/integrations/notion/connect', (route) => route.fulfill({ status: 204 }))
+  await page.goto('/settings')
+  await page.getByRole('button', { name: 'Connect Notion' }).click({ noWaitAfter: true })
+  await expect(page.getByRole('button', { name: 'Redirecting to Notion…' })).toBeDisabled()
+  await page.screenshot(shot('settings-notion-connecting'))
+})
+
+test('settings: Notion connected', async ({ page }) => {
+  await settingsWithNotion(page, notionConnected)
+  await page.goto('/settings')
+  await expect(notionRow(page).getByText('Account: Alice Example (Acme)')).toBeVisible()
+  await page.screenshot(shot('settings-notion-connected'))
+})
+
+test('settings: disconnecting Notion', async ({ page }) => {
+  await settingsWithNotion(page, notionConnected)
+  await page.route('**/api/v1/integrations/notion/disconnect', () => new Promise(() => {}))
+  await page.goto('/settings')
+  await page.getByRole('button', { name: 'Disconnect Notion' }).click()
+  await expect(notionRow(page).getByRole('button', { name: 'Disconnecting…' })).toBeDisabled()
+  await page.screenshot(shot('settings-notion-disconnecting'))
+})
+
+test('settings: disconnecting Notion failed', async ({ page }) => {
+  await settingsWithNotion(page, notionConnected)
+  await page.route('**/api/v1/integrations/notion/disconnect', (route) =>
+    route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"internal_error"}' }),
+  )
+  await page.goto('/settings')
+  await page.getByRole('button', { name: 'Disconnect Notion' }).click()
+  await expect(notionRow(page).getByRole('alert')).toContainText('Could not disconnect Notion.')
+  await page.screenshot(shot('settings-notion-disconnect-failed'))
+})
+
+test('settings: Notion needs to be reconnected', async ({ page }) => {
+  await settingsWithNotion(page, { ...notionConnected, needs_reconnect: true })
+  await page.goto('/settings')
+  await expect(notionRow(page).getByRole('button', { name: 'Reconnect Notion' })).toBeEnabled()
+  await page.screenshot(shot('settings-notion-needs-reconnect'))
+})
+
+for (const [result, name, text] of [
+  ['connected', 'settings-notion-notice-connected', 'Notion is connected.'],
+  ['access_denied', 'settings-notion-notice-access-denied', 'you cancelled the request on Notion'],
+  ['wrong_workspace', 'settings-notion-notice-wrong-workspace', 'the workspace you chose is not the one Ariel is set up for'],
+  ['account_in_use', 'settings-notion-notice-account-in-use', 'this Notion account is already connected'],
+  ['failed', 'settings-notion-notice-failed', 'Could not connect Notion.'],
+] as const) {
+  test(`settings: Notion connection result ${result}`, async ({ page }) => {
+    await settingsWithNotion(page, result === 'connected' ? notionConnected : notionNotConnected)
+    await page.goto(`/settings?notion=${result}`)
     await expect(page.getByText(text)).toBeVisible()
     await page.screenshot(shot(name))
   })

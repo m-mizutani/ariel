@@ -104,7 +104,7 @@ func TestAuthUseCase_AuthorizeURL(t *testing.T) {
 	q := u.Query()
 	gt.String(t, q.Get("client_id")).Equal("client-id")
 	gt.String(t, q.Get("user_scope")).Equal("search:read")
-	gt.String(t, q.Get("redirect_uri")).Equal(testBaseURL + "/api/auth/callback")
+	gt.String(t, q.Get("redirect_uri")).Equal(testBaseURL + "/api/v1/auth/callback")
 	gt.String(t, q.Get("state")).Equal("state-value")
 	gt.String(t, q.Get("team")).Equal("T0123ABCD")
 	gt.Bool(t, q.Has("scope")).False()
@@ -118,7 +118,7 @@ func TestAuthUseCase_HandleCallback(t *testing.T) {
 	gt.NoError(t, err).Required()
 
 	gt.Value(t, f.oauth.codes).Equal([]string{"auth-code"})
-	gt.Value(t, f.oauth.redirectURIs).Equal([]string{testBaseURL + "/api/auth/callback"})
+	gt.Value(t, f.oauth.redirectURIs).Equal([]string{testBaseURL + "/api/v1/auth/callback"})
 	gt.Number(t, f.factory.authTestCount()).Equal(1)
 
 	user, err := f.repo.User().Get(ctx, testKey)
@@ -303,7 +303,7 @@ func TestAuthUseCase_NoAuth(t *testing.T) {
 	t.Run("authorize URL points at the own callback", func(t *testing.T) {
 		u, err := url.Parse(uc.AuthorizeURL("state-value"))
 		gt.NoError(t, err).Required()
-		gt.String(t, u.Scheme+"://"+u.Host+u.Path).Equal(testBaseURL + "/api/auth/callback")
+		gt.String(t, u.Scheme+"://"+u.Host+u.Path).Equal(testBaseURL + "/api/v1/auth/callback")
 		gt.String(t, u.Query().Get("state")).Equal("state-value")
 		gt.String(t, u.Query().Get("code")).NotEqual("")
 	})

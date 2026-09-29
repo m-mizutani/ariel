@@ -19,8 +19,12 @@ const (
 	// googleWorkspaceAccountsCollection is keyed by the Google account and
 	// names the only user it is connected to.
 	googleWorkspaceAccountsCollection = "googleWorkspaceAccounts"
-	sessionsCollection                = "sessions"
-	slackEventsCollection             = "slackEvents"
+	notionCredentialDocID             = "notion"
+	// notionAccountsCollection is keyed by the Notion user and names the only
+	// user the Notion account is connected to.
+	notionAccountsCollection = "notionAccounts"
+	sessionsCollection       = "sessions"
+	slackEventsCollection    = "slackEvents"
 )
 
 type Firestore struct {
@@ -28,6 +32,7 @@ type Firestore struct {
 	user                      *userRepository
 	slackCredential           *slackCredentialRepository
 	googleWorkspaceCredential *googleWorkspaceCredentialRepository
+	notionCredential          *notionCredentialRepository
 	session                   *sessionRepository
 	slackEvent                *slackEventRepository
 }
@@ -55,6 +60,7 @@ func New(ctx context.Context, projectID, databaseID string) (*Firestore, error) 
 		user:                      &userRepository{client: client},
 		slackCredential:           &slackCredentialRepository{client: client},
 		googleWorkspaceCredential: &googleWorkspaceCredentialRepository{client: client},
+		notionCredential:          &notionCredentialRepository{client: client},
 		session:                   &sessionRepository{client: client},
 		slackEvent:                &slackEventRepository{client: client},
 	}, nil
@@ -64,6 +70,9 @@ func (f *Firestore) User() interfaces.UserRepository                       { ret
 func (f *Firestore) SlackCredential() interfaces.SlackCredentialRepository { return f.slackCredential }
 func (f *Firestore) GoogleWorkspaceCredential() interfaces.GoogleWorkspaceCredentialRepository {
 	return f.googleWorkspaceCredential
+}
+func (f *Firestore) NotionCredential() interfaces.NotionCredentialRepository {
+	return f.notionCredential
 }
 func (f *Firestore) Session() interfaces.SessionRepository       { return f.session }
 func (f *Firestore) SlackEvent() interfaces.SlackEventRepository { return f.slackEvent }

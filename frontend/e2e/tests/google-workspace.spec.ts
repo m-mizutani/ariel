@@ -24,7 +24,7 @@ async function signIn(page: Page) {
 // authorization URL the server redirected to.
 async function stopBeforeGoogle(page: Page): Promise<() => URL | undefined> {
   let location: URL | undefined
-  await page.route('**/api/integrations/google-workspace/connect', async (route) => {
+  await page.route('**/api/v1/integrations/google-workspace/connect', async (route) => {
     const response = await route.fetch({ maxRedirects: 0 })
     expect(response.status()).toBe(302)
     location = new URL(response.headers()['location'])
@@ -52,7 +52,7 @@ test('connecting sends the browser to Google with the configured client and scop
   const googleURL = await stopBeforeGoogle(page)
 
   await googleRow(page).getByRole('button', { name: 'Connect Google Workspace' }).click()
-  await expect(page).toHaveURL('/api/integrations/google-workspace/connect')
+  await expect(page).toHaveURL('/api/v1/integrations/google-workspace/connect')
 
   const url = googleURL()
   expect(url).toBeDefined()
@@ -60,7 +60,7 @@ test('connecting sends the browser to Google with the configured client and scop
   expect(url!.pathname).toBe('/o/oauth2/v2/auth')
   const q = url!.searchParams
   expect(q.get('client_id')).toBe(e2eGoogleClientID)
-  expect(q.get('redirect_uri')).toBe(`${baseURL}/api/integrations/google-workspace/callback`)
+  expect(q.get('redirect_uri')).toBe(`${baseURL}/api/v1/integrations/google-workspace/callback`)
   expect(q.get('response_type')).toBe('code')
   expect(q.get('scope')?.split(' ')).toEqual([
     'openid',
@@ -77,7 +77,7 @@ test('connecting sends the browser to Google with the configured client and scop
   expect(cookie).toBeDefined()
   expect(cookie!.httpOnly).toBe(true)
   expect(cookie!.sameSite).toBe('Lax')
-  expect(cookie!.path).toBe('/api/integrations/google-workspace')
+  expect(cookie!.path).toBe('/api/v1/integrations/google-workspace')
   expect(cookie!.value.startsWith(`${q.get('state')}.`)).toBe(true)
 })
 
@@ -85,11 +85,11 @@ test('cancelling on Google returns to the settings page with a message', async (
   await signIn(page)
   const googleURL = await stopBeforeGoogle(page)
   await googleRow(page).getByRole('button', { name: 'Connect Google Workspace' }).click()
-  await expect(page).toHaveURL('/api/integrations/google-workspace/connect')
+  await expect(page).toHaveURL('/api/v1/integrations/google-workspace/connect')
   const state = googleURL()!.searchParams.get('state')
   expect((await context.cookies()).map((c) => c.name)).toContain('ariel_google_oauth_state')
 
-  await page.goto(`/api/integrations/google-workspace/callback?error=access_denied&state=${state}`)
+  await page.goto(`/api/v1/integrations/google-workspace/callback?error=access_denied&state=${state}`)
 
   await expect(page.getByRole('alert')).toHaveText(
     'Google Workspace was not connected because you cancelled the request on Google.',
@@ -103,7 +103,7 @@ test('cancelling on Google returns to the settings page with a message', async (
 test('a callback that this browser did not start is rejected', async ({ page }) => {
   await signIn(page)
 
-  await page.goto('/api/integrations/google-workspace/callback?code=forged-code&state=forged-state')
+  await page.goto('/api/v1/integrations/google-workspace/callback?code=forged-code&state=forged-state')
 
   await expect(page.getByRole('alert')).toHaveText('Could not connect Google Workspace. Try again.')
   await expect(page).toHaveURL('/settings')
@@ -111,26 +111,26 @@ test('a callback that this browser did not start is rejected', async ({ page }) 
 })
 
 test('a signed-out visitor cannot use the Google Workspace endpoints', async ({ page }) => {
-  await page.goto('/api/integrations/google-workspace/connect')
+  await page.goto('/api/v1/integrations/google-workspace/connect')
   await expect(page).toHaveURL('/login')
 
-  await page.goto('/api/integrations/google-workspace/callback?code=c&state=s')
+  await page.goto('/api/v1/integrations/google-workspace/callback?code=c&state=s')
   await expect(page).toHaveURL('/login')
 
-  const status = await page.request.get('/api/integrations/google-workspace')
+  const status = await page.request.get('/api/v1/integrations/google-workspace')
   expect(status.status()).toBe(401)
-  const disconnect = await page.request.post('/api/integrations/google-workspace/disconnect')
+  const disconnect = await page.request.post('/api/v1/integrations/google-workspace/disconnect')
   expect(disconnect.status()).toBe(401)
 })
 
 test('disconnecting an account that is not connected succeeds and changes nothing', async ({ page }) => {
   await signIn(page)
 
-  const res = await page.request.post('/api/integrations/google-workspace/disconnect')
+  const res = await page.request.post('/api/v1/integrations/google-workspace/disconnect')
   expect(res.status()).toBe(200)
   expect(await res.json()).toEqual({ success: true })
 
-  const status = await page.request.get('/api/integrations/google-workspace')
+  const status = await page.request.get('/api/v1/integrations/google-workspace')
   expect(await status.json()).toEqual({ available: true, connected: false, email: '' })
   await page.reload()
   await expect(googleRow(page).getByText('Not connected')).toBeVisible()

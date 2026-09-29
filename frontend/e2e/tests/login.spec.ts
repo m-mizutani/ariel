@@ -57,21 +57,21 @@ test('signing out ends the session', async ({ page, context }) => {
 
   await page.goto('/')
   await expect(page).toHaveURL('/login')
-  const me = await page.request.get('/api/auth/me')
+  const me = await page.request.get('/api/v1/auth/me')
   expect(me.status()).toBe(401)
 })
 
 test('a callback without the matching state cookie fails and does not sign in', async ({ page }) => {
-  await page.goto('/api/auth/callback?code=no-auth&state=forged')
+  await page.goto('/api/v1/auth/callback?code=no-auth&state=forged')
   await expect(page).toHaveURL('/login?error=login_failed')
   await expect(page.getByRole('alert')).toContainText('Sign-in failed.')
 
-  const me = await page.request.get('/api/auth/me')
+  const me = await page.request.get('/api/v1/auth/me')
   expect(me.status()).toBe(401)
 })
 
 test('a sign-in cancelled at Slack shows the cancellation message', async ({ page }) => {
-  await page.goto('/api/auth/callback?error=access_denied&state=any')
+  await page.goto('/api/v1/auth/callback?error=access_denied&state=any')
   await expect(page).toHaveURL('/login?error=access_denied')
   await expect(page.getByRole('alert')).toContainText('Sign-in was cancelled.')
 })

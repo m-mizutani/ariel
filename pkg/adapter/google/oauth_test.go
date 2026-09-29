@@ -77,7 +77,7 @@ func (f *fakeGoogle) oauth() *google.OAuth {
 	return google.NewOAuthForTest("client-id", "client-secret", f.server.URL)
 }
 
-const redirectURI = "https://ariel.example.com/api/integrations/google-workspace/callback"
+const redirectURI = "https://ariel.example.com/api/v1/integrations/google-workspace/callback"
 
 var scopes = []string{
 	"openid",

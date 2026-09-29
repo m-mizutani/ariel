@@ -34,4 +34,31 @@ var (
 	// ErrGoogleWorkspaceAlreadyConnected means the user already has a
 	// connected Google account; a new connection is ignored.
 	ErrGoogleWorkspaceAlreadyConnected = errors.New("google workspace is already connected")
+
+	// ErrNotionNotConnected means no Notion token is stored for the user.
+	ErrNotionNotConnected = errors.New("notion is not connected")
+
+	// ErrNotionReconnectRequired means Notion rejected the stored refresh
+	// token; the user has to connect Notion again.
+	ErrNotionReconnectRequired = errors.New("notion needs to be reconnected")
+
+	// ErrNotionConnectRejected means Notion completed the authorization but
+	// the result cannot be stored (not a user authorization, missing tokens).
+	ErrNotionConnectRejected = errors.New("notion connection rejected")
+
+	// ErrNotionWrongWorkspace means the user authorized a Notion workspace
+	// other than the configured one.
+	ErrNotionWrongWorkspace = errors.New("notion workspace is not the configured one")
+
+	// ErrNotionAccountInUse means the Notion account the user authorized is
+	// already connected to another user.
+	ErrNotionAccountInUse = errors.New("notion account is connected to another user")
+
+	// ErrNotionAlreadyConnected means the user already has a working Notion
+	// connection; a new connection is ignored.
+	ErrNotionAlreadyConnected = errors.New("notion is already connected")
+
+	// ErrNotionInvalidRequest means a read request was rejected before it was
+	// sent to Notion (malformed ID, page size out of range, invalid JSON).
+	ErrNotionInvalidRequest = errors.New("invalid notion request")
 )

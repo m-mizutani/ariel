@@ -18,7 +18,7 @@ func (x *KMS) Flags() []cli.Flag {
 		&cli.StringFlag{
 			Name:        "kms-key-name",
 			Category:    "KMS",
-			Usage:       "Cloud KMS key that encrypts user tokens of Slack and Google Workspace (projects/*/locations/*/keyRings/*/cryptoKeys/*)",
+			Usage:       "Cloud KMS key that encrypts user tokens of Slack, Google Workspace, and Notion (projects/*/locations/*/keyRings/*/cryptoKeys/*)",
 			Sources:     cli.EnvVars("ARIEL_KMS_KEY_NAME"),
 			Destination: &x.keyName,
 		},

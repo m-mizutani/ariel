@@ -76,7 +76,7 @@ func (f *fakeGoogleWorkspaceUseCase) Disconnect(_ context.Context, key model.Use
 	return f.disconnectErr
 }
 
-const googleBase = "/api/integrations/google-workspace"
+const googleBase = "/api/v1/integrations/google-workspace"
 
 var sessionKey = model.UserKey{TeamID: "T0123ABCD", UserID: "U0123ABCD"}
 
@@ -190,7 +190,7 @@ func TestGoogleConnect(t *testing.T) {
 		cookie := findCookie(resp, "ariel_google_oauth_state")
 		gt.Value(t, cookie).NotNil().Required()
 		gt.String(t, cookie.Value).Equal(state + "." + string(authUC.session.ID))
-		gt.String(t, cookie.Path).Equal("/api/integrations/google-workspace")
+		gt.String(t, cookie.Path).Equal("/api/v1/integrations/google-workspace")
 		gt.Number(t, cookie.MaxAge).Equal(600)
 		gt.Bool(t, cookie.HttpOnly).True()
 		gt.Bool(t, cookie.Secure).True()
@@ -255,7 +255,7 @@ func TestGoogleCallback_Success(t *testing.T) {
 	state := findCookie(resp, "ariel_google_oauth_state")
 	gt.Value(t, state).NotNil().Required()
 	gt.Bool(t, state.MaxAge < 0).True()
-	gt.String(t, state.Path).Equal("/api/integrations/google-workspace")
+	gt.String(t, state.Path).Equal("/api/v1/integrations/google-workspace")
 }
 
 func TestGoogleCallback_RedirectIgnoresRequest(t *testing.T) {

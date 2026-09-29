@@ -12,11 +12,12 @@ import (
 	"github.com/urfave/cli/v3"
 
 	googleadapter "github.com/m-mizutani/ariel/pkg/adapter/google"
+	"github.com/m-mizutani/ariel/pkg/adapter/localcipher"
+	notionadapter "github.com/m-mizutani/ariel/pkg/adapter/notion"
 	slackadapter "github.com/m-mizutani/ariel/pkg/adapter/slack"
 	"github.com/m-mizutani/ariel/pkg/cli/config"
 	httpctrl "github.com/m-mizutani/ariel/pkg/controller/http"
 	"github.com/m-mizutani/ariel/pkg/domain/interfaces"
-	"github.com/m-mizutani/ariel/pkg/domain/model"
 	"github.com/m-mizutani/ariel/pkg/usecase"
 	"github.com/m-mizutani/ariel/pkg/utils/async"
 	"github.com/m-mizutani/ariel/pkg/utils/logging"
@@ -30,6 +31,9 @@ const (
 
 	readHeaderTimeout = 10 * time.Second
 	shutdownTimeout   = 10 * time.Second
+	// notionHTTPTimeout bounds one call to Notion, so a request handler is
+	// not held forever when Notion does not answer.
+	notionHTTPTimeout = 30 * time.Second
 )
 
 type serveConfig struct {
@@ -38,6 +42,7 @@ type serveConfig struct {
 	slack      config.Slack
 	kms        config.KMS
 	google     config.Google
+	notion     config.Notion
 	noAuth     config.NoAuth
 }
 
@@ -48,6 +53,7 @@ func (c *serveConfig) flags() []cli.Flag {
 	flags = append(flags, c.slack.Flags()...)
 	flags = append(flags, c.kms.Flags()...)
 	flags = append(flags, c.google.Flags()...)
+	flags = append(flags, c.notion.Flags()...)
 	flags = append(flags, c.noAuth.Flags()...)
 	return flags
 }
@@ -57,6 +63,9 @@ func (c *serveConfig) validate() error {
 		if err := v.Validate(); err != nil {
 			return err
 		}
+	}
+	if err := c.notion.Validate(c.noAuth.Enabled()); err != nil {
+		return err
 	}
 
 	if !c.noAuth.Enabled() {
@@ -79,18 +88,6 @@ func (c *serveConfig) validate() error {
 		return c.kms.Validate()
 	}
 	return nil
-}
-
-// unavailableCipher stands in for Cloud KMS in no-auth mode without a key.
-// No token is stored in that mode, so it is never expected to be called.
-type unavailableCipher struct{}
-
-func (unavailableCipher) Encrypt(context.Context, []byte, []byte) (*model.EncryptedData, error) {
-	return nil, goerr.New("KMS is not configured")
-}
-
-func (unavailableCipher) Decrypt(context.Context, *model.EncryptedData, []byte) ([]byte, error) {
-	return nil, goerr.New("KMS is not configured")
 }
 
 func cmdServe() *cli.Command {
@@ -116,7 +113,7 @@ func runServe(ctx context.Context, cfg *serveConfig) error {
 	}
 	defer safe.Close(ctx, repo)
 
-	var cipher interfaces.Cipher = unavailableCipher{}
+	var cipher interfaces.Cipher
 	if cfg.kms.IsSet() {
 		kmsClient, err := cfg.kms.Configure(ctx)
 		if err != nil {
@@ -124,6 +121,16 @@ func runServe(ctx context.Context, cfg *serveConfig) error {
 		}
 		defer safe.Close(ctx, kmsClient)
 		cipher = kmsClient
+	} else {
+		// validate accepts a missing KMS key only with --no-auth, where the
+		// repository is in memory: the key and the data it protects both end
+		// with the process.
+		local, err := localcipher.New()
+		if err != nil {
+			return err
+		}
+		cipher = local
+		logging.Default().Warn("KMS is not configured: tokens are encrypted with a key that is lost when the server stops")
 	}
 
 	var bot interfaces.SlackBot
@@ -164,6 +171,17 @@ func runServe(ctx context.Context, cfg *serveConfig) error {
 			usecase.GoogleWorkspaceConfig{BaseURL: cfg.server.BaseURL()},
 		)
 		httpOpts = append(httpOpts, httpctrl.WithGoogleWorkspace(googleUC))
+	}
+	if cfg.notion.Enabled() {
+		notionHTTP := &http.Client{Timeout: notionHTTPTimeout}
+		notionOAuth := notionadapter.NewOAuth(cfg.notion.ClientID(), cfg.notion.ClientSecret(), cfg.notion.APIURL(), notionHTTP)
+		notionAccess := usecase.NewNotionAccess(repo, cipher, notionOAuth,
+			notionadapter.NewClientFactory(cfg.notion.APIURL(), notionHTTP))
+		notionUC := usecase.NewNotionUseCase(notionOAuth, notionAccess, usecase.NotionConfig{
+			BaseURL:     cfg.server.BaseURL(),
+			WorkspaceID: cfg.notion.WorkspaceID(),
+		})
+		httpOpts = append(httpOpts, httpctrl.WithNotion(notionUC))
 	}
 
 	handler, err := httpctrl.New(authUC, httpctrl.Config{BaseURL: cfg.server.BaseURL()}, httpOpts...)
