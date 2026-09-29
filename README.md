@@ -9,6 +9,10 @@ Current features:
   in receives a sign-in link instead.
 - At sign-in, the user's Slack user token (`search:read`) is stored encrypted
   with Cloud KMS, for features that act on the user's behalf.
+- Optionally, connect and disconnect a Google Workspace account on the settings
+  page. Ariel obtains read-only access to Calendar, Drive, and Gmail through an
+  OAuth client of your own organization and stores the refresh token encrypted
+  with Cloud KMS.
 
 See [docs/setup.md](docs/setup.md) for the Slack app, Google Cloud setup, and
 configuration. The Slack app manifest is

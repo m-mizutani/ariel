@@ -31,6 +31,13 @@ type slackEventUseCase interface {
 	HandleEvent(ctx context.Context, event *slackevents.EventsAPIEvent) error
 }
 
+type googleWorkspaceUseCase interface {
+	AuthorizeURL(state string) string
+	HandleCallback(ctx context.Context, key model.UserKey, code string) error
+	Status(ctx context.Context, key model.UserKey) (*usecase.GoogleWorkspaceStatus, error)
+	Disconnect(ctx context.Context, key model.UserKey) error
+}
+
 type Config struct {
 	// BaseURL decides the Secure cookie attribute. A TLS-terminating proxy
 	// hides TLS from the request, so the scheme of the public URL is used.
@@ -43,6 +50,7 @@ type Server struct {
 	router       *chi.Mux
 	authUC       authUseCase
 	slackUC      slackEventUseCase
+	googleUC     googleWorkspaceUseCase
 	secureCookie bool
 }
 
@@ -51,6 +59,16 @@ type Option func(*options)
 type options struct {
 	slackUC            slackEventUseCase
 	slackSigningSecret string
+	googleUC           googleWorkspaceUseCase
+}
+
+// WithGoogleWorkspace mounts the connect, callback, and disconnect endpoints
+// of the Google Workspace integration. Without it, those endpoints do not
+// exist and the status endpoint reports the integration as unavailable.
+func WithGoogleWorkspace(uc googleWorkspaceUseCase) Option {
+	return func(o *options) {
+		o.googleUC = uc
+	}
 }
 
 // WithSlackEvents mounts POST /hooks/slack/event. Without it the endpoint does
@@ -88,6 +106,7 @@ func New(authUC authUseCase, cfg Config, opts ...Option) (*Server, error) {
 		router:       chi.NewRouter(),
 		authUC:       authUC,
 		slackUC:      o.slackUC,
+		googleUC:     o.googleUC,
 		secureCookie: base.Scheme == "https",
 	}
 
@@ -104,6 +123,15 @@ func New(authUC authUseCase, cfg Config, opts ...Option) (*Server, error) {
 		r.Get("/callback", s.authCallbackHandler)
 		r.Post("/logout", s.authLogoutHandler)
 		r.With(requireSession(authUC)).Get("/me", s.authMeHandler)
+		r.NotFound(apiNotFound)
+	})
+	r.Route(googleStateCookiePath, func(r chi.Router) {
+		r.With(requireSession(authUC)).Get("/", s.googleStatusHandler)
+		if s.googleUC != nil {
+			r.With(requireSessionOrLogin(authUC)).Get("/connect", s.googleConnectHandler)
+			r.With(requireSessionOrLogin(authUC)).Get("/callback", s.googleCallbackHandler)
+			r.With(requireSession(authUC)).Post("/disconnect", s.googleDisconnectHandler)
+		}
 		r.NotFound(apiNotFound)
 	})
 	r.HandleFunc("/api/*", apiNotFound)

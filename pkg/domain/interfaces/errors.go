@@ -18,4 +18,8 @@ var (
 	// ErrSlackTokenInvalid is returned when Slack reports that a token can no
 	// longer be used (revoked, expired, account deactivated).
 	ErrSlackTokenInvalid = errors.New("slack token is invalid")
+
+	// ErrGoogleTokenInvalid is returned when Google rejects a token as invalid
+	// (already revoked, expired, or unknown).
+	ErrGoogleTokenInvalid = errors.New("google token is invalid")
 )

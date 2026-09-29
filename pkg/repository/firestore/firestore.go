@@ -11,20 +11,22 @@ import (
 )
 
 const (
-	teamsCollection       = "teams"
-	usersCollection       = "users"
-	credentialsCollection = "credentials"
-	slackCredentialDocID  = "slack"
-	sessionsCollection    = "sessions"
-	slackEventsCollection = "slackEvents"
+	teamsCollection                = "teams"
+	usersCollection                = "users"
+	credentialsCollection          = "credentials"
+	slackCredentialDocID           = "slack"
+	googleWorkspaceCredentialDocID = "google_workspace"
+	sessionsCollection             = "sessions"
+	slackEventsCollection          = "slackEvents"
 )
 
 type Firestore struct {
-	client          *firestore.Client
-	user            *userRepository
-	slackCredential *slackCredentialRepository
-	session         *sessionRepository
-	slackEvent      *slackEventRepository
+	client                    *firestore.Client
+	user                      *userRepository
+	slackCredential           *slackCredentialRepository
+	googleWorkspaceCredential *googleWorkspaceCredentialRepository
+	session                   *sessionRepository
+	slackEvent                *slackEventRepository
 }
 
 var _ interfaces.Repository = &Firestore{}
@@ -46,18 +48,22 @@ func New(ctx context.Context, projectID, databaseID string) (*Firestore, error) 
 	}
 
 	return &Firestore{
-		client:          client,
-		user:            &userRepository{client: client},
-		slackCredential: &slackCredentialRepository{client: client},
-		session:         &sessionRepository{client: client},
-		slackEvent:      &slackEventRepository{client: client},
+		client:                    client,
+		user:                      &userRepository{client: client},
+		slackCredential:           &slackCredentialRepository{client: client},
+		googleWorkspaceCredential: &googleWorkspaceCredentialRepository{client: client},
+		session:                   &sessionRepository{client: client},
+		slackEvent:                &slackEventRepository{client: client},
 	}, nil
 }
 
 func (f *Firestore) User() interfaces.UserRepository                       { return f.user }
 func (f *Firestore) SlackCredential() interfaces.SlackCredentialRepository { return f.slackCredential }
-func (f *Firestore) Session() interfaces.SessionRepository                 { return f.session }
-func (f *Firestore) SlackEvent() interfaces.SlackEventRepository           { return f.slackEvent }
+func (f *Firestore) GoogleWorkspaceCredential() interfaces.GoogleWorkspaceCredentialRepository {
+	return f.googleWorkspaceCredential
+}
+func (f *Firestore) Session() interfaces.SessionRepository       { return f.session }
+func (f *Firestore) SlackEvent() interfaces.SlackEventRepository { return f.slackEvent }
 
 func (f *Firestore) Close() error {
 	return f.client.Close()

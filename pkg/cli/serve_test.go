@@ -19,6 +19,7 @@ func clearServeEnv(t *testing.T) {
 		"ARIEL_REPOSITORY_BACKEND", "ARIEL_FIRESTORE_PROJECT_ID", "ARIEL_FIRESTORE_DATABASE_ID",
 		"ARIEL_SLACK_CLIENT_ID", "ARIEL_SLACK_CLIENT_SECRET", "ARIEL_SLACK_SIGNING_SECRET",
 		"ARIEL_SLACK_BOT_TOKEN", "ARIEL_SLACK_TEAM_ID", "ARIEL_KMS_KEY_NAME", "ARIEL_NO_AUTH",
+		"ARIEL_GOOGLE_CLIENT_ID", "ARIEL_GOOGLE_CLIENT_SECRET",
 	} {
 		t.Setenv(name, "")
 		gt.NoError(t, os.Unsetenv(name)).Required()
@@ -105,6 +106,41 @@ func TestServe_NoAuthNeedsTeamID(t *testing.T) {
 	err := cli.Run(context.Background(), args, "test")
 	gt.Value(t, err).NotNil().Required()
 	gt.String(t, err.Error()).Contains("--slack-team-id")
+}
+
+func noAuthGoogleArgs() []string {
+	return []string{
+		"ariel", "--log-format", "json", "serve",
+		// An address that cannot be listened on stops the server right after
+		// the configuration has been validated and assembled.
+		"--addr", "127.0.0.1:-1",
+		"--base-url", "http://localhost:8080",
+		"--repository-backend", "memory",
+		"--slack-team-id", "T0123ABCD",
+		"--no-auth", "U0E2ETEST",
+		"--google-client-id", "client-id",
+		"--google-client-secret", "client-secret",
+	}
+}
+
+func TestServe_NoAuthAcceptsGoogle(t *testing.T) {
+	clearServeEnv(t)
+	err := cli.Run(context.Background(), noAuthGoogleArgs(), "test")
+	gt.Value(t, err).NotNil().Required()
+	gt.String(t, err.Error()).Contains("HTTP server stopped")
+}
+
+func TestServe_GoogleNeedsBothFlags(t *testing.T) {
+	clearServeEnv(t)
+	for _, flag := range []string{"--google-client-id", "--google-client-secret"} {
+		t.Run("without "+flag, func(t *testing.T) {
+			for _, args := range [][]string{without(noAuthGoogleArgs(), flag), without(append(validServeArgs(), "--google-client-id", "client-id", "--google-client-secret", "client-secret"), flag)} {
+				err := cli.Run(context.Background(), args, "test")
+				gt.Value(t, err).NotNil().Required()
+				gt.String(t, err.Error()).Contains("--google-client-id and --google-client-secret must be set together")
+			}
+		})
+	}
 }
 
 func TestRun_InvalidLogLevel(t *testing.T) {

@@ -1,0 +1,343 @@
+package usecase_test
+
+import (
+	"bytes"
+	"context"
+	"errors"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/m-mizutani/goerr/v2"
+	"github.com/m-mizutani/gt"
+
+	"github.com/m-mizutani/ariel/pkg/domain/interfaces"
+	"github.com/m-mizutani/ariel/pkg/domain/model"
+	"github.com/m-mizutani/ariel/pkg/repository/memory"
+	"github.com/m-mizutani/ariel/pkg/usecase"
+)
+
+const googleCallbackURL = "https://ariel.example.com/api/integrations/google-workspace/callback"
+
+type authorizeCall struct {
+	State       string
+	RedirectURI string
+	Scopes      []string
+}
+
+type exchangeCall struct {
+	Code        string
+	RedirectURI string
+}
+
+// fakeGoogleOAuth returns configured results and records every call Ariel
+// would make to Google.
+type fakeGoogleOAuth struct {
+	mu          sync.Mutex
+	result      *model.GoogleOAuthResult
+	exchangeErr error
+	identity    *model.GoogleIdentity
+	identityErr error
+	revokeErr   error
+
+	authorizes []authorizeCall
+	exchanges  []exchangeCall
+	identities []model.GoogleAccessToken
+	revokes    []string
+}
+
+func newFakeGoogleOAuth() *fakeGoogleOAuth {
+	return &fakeGoogleOAuth{
+		result: &model.GoogleOAuthResult{
+			AccessToken:  "access-1",
+			RefreshToken: "refresh-1",
+			Scopes:       googleScopes,
+		},
+		identity: aliceIdentity,
+	}
+}
+
+func (f *fakeGoogleOAuth) AuthorizeURL(state, redirectURI string, scopes []string) string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.authorizes = append(f.authorizes, authorizeCall{State: state, RedirectURI: redirectURI, Scopes: scopes})
+	return "https://accounts.google.com/o/oauth2/v2/auth?state=" + state
+}
+
+func (f *fakeGoogleOAuth) ExchangeCode(_ context.Context, code, redirectURI string) (*model.GoogleOAuthResult, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.exchanges = append(f.exchanges, exchangeCall{Code: code, RedirectURI: redirectURI})
+	if f.exchangeErr != nil {
+		return nil, f.exchangeErr
+	}
+	res := *f.result
+	return &res, nil
+}
+
+func (f *fakeGoogleOAuth) FetchIdentity(_ context.Context, accessToken model.GoogleAccessToken) (*model.GoogleIdentity, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.identities = append(f.identities, accessToken)
+	if f.identityErr != nil {
+		return nil, f.identityErr
+	}
+	id := *f.identity
+	return &id, nil
+}
+
+func (f *fakeGoogleOAuth) Revoke(_ context.Context, token string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.revokes = append(f.revokes, token)
+	return f.revokeErr
+}
+
+func (f *fakeGoogleOAuth) revoked() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string(nil), f.revokes...)
+}
+
+type googleFixture struct {
+	repo   *memory.Memory
+	cipher *fakeCipher
+	oauth  *fakeGoogleOAuth
+	uc     *usecase.GoogleWorkspaceUseCase
+	now    time.Time
+}
+
+func newGoogleFixture() *googleFixture {
+	f := &googleFixture{
+		repo:   memory.New(),
+		cipher: &fakeCipher{},
+		oauth:  newFakeGoogleOAuth(),
+		now:    time.Date(2026, 9, 29, 10, 0, 0, 0, time.UTC),
+	}
+	f.uc = usecase.NewGoogleWorkspaceUseCase(f.oauth, usecase.NewGoogleWorkspaceAccess(f.repo, f.cipher),
+		usecase.GoogleWorkspaceConfig{BaseURL: "https://ariel.example.com"})
+	f.uc.SetNowForTest(func() time.Time { return f.now })
+	return f
+}
+
+func (f *googleFixture) assertNothingStored(t *testing.T) {
+	t.Helper()
+	_, err := f.repo.GoogleWorkspaceCredential().Get(context.Background(), testKey)
+	gt.Error(t, err).Is(interfaces.ErrNotFound)
+}
+
+func TestGoogleWorkspaceUseCase_AuthorizeURL(t *testing.T) {
+	f := newGoogleFixture()
+
+	got := f.uc.AuthorizeURL("s1")
+	gt.String(t, got).Equal("https://accounts.google.com/o/oauth2/v2/auth?state=s1")
+	gt.Array(t, f.oauth.authorizes).Length(1).Required()
+	gt.Value(t, f.oauth.authorizes[0]).Equal(authorizeCall{
+		State:       "s1",
+		RedirectURI: googleCallbackURL,
+		Scopes: []string{
+			"openid",
+			"email",
+			"https://www.googleapis.com/auth/calendar.readonly",
+			"https://www.googleapis.com/auth/drive.readonly",
+			"https://www.googleapis.com/auth/gmail.readonly",
+		},
+	})
+}
+
+func TestGoogleWorkspaceUseCase_HandleCallback(t *testing.T) {
+	ctx := context.Background()
+	f := newGoogleFixture()
+
+	gt.NoError(t, f.uc.HandleCallback(ctx, testKey, "code-1")).Required()
+
+	gt.Value(t, f.oauth.exchanges).Equal([]exchangeCall{{Code: "code-1", RedirectURI: googleCallbackURL}})
+	gt.Value(t, f.oauth.identities).Equal([]model.GoogleAccessToken{"access-1"})
+	gt.Array(t, f.oauth.revoked()).Length(0)
+
+	cred, err := f.repo.GoogleWorkspaceCredential().Get(ctx, testKey)
+	gt.NoError(t, err).Required()
+	gt.Value(t, cred.Key()).Equal(testKey)
+	gt.Bool(t, bytes.HasSuffix(cred.RefreshToken.Ciphertext, []byte("refresh-1"))).True()
+	gt.Value(t, cred.Scopes).Equal(googleScopes)
+	gt.String(t, cred.Subject).Equal("1234567890")
+	gt.String(t, cred.Email).Equal("alice@example.com")
+	gt.Bool(t, cred.CreatedAt.Equal(f.now)).True()
+	gt.Bool(t, cred.UpdatedAt.Equal(f.now)).True()
+}
+
+func TestGoogleWorkspaceUseCase_HandleCallbackRejects(t *testing.T) {
+	cases := map[string]struct {
+		setup        func(f *googleFixture)
+		wantErr      error
+		wantRevoked  []string
+		wantUserinfo bool
+	}{
+		"gmail scope not granted": {
+			setup: func(f *googleFixture) {
+				f.oauth.result.Scopes = []string{
+					"openid",
+					"https://www.googleapis.com/auth/calendar.readonly",
+					"https://www.googleapis.com/auth/drive.readonly",
+				}
+			},
+			wantErr:     usecase.ErrGoogleScopeNotGranted,
+			wantRevoked: []string{"refresh-1"},
+		},
+		"no scope granted": {
+			setup:       func(f *googleFixture) { f.oauth.result.Scopes = nil },
+			wantErr:     usecase.ErrGoogleScopeNotGranted,
+			wantRevoked: []string{"refresh-1"},
+		},
+		"no refresh token": {
+			setup:       func(f *googleFixture) { f.oauth.result.RefreshToken = "" },
+			wantErr:     usecase.ErrGoogleConnectRejected,
+			wantRevoked: []string{"access-1"},
+		},
+		"userinfo fails": {
+			setup:        func(f *googleFixture) { f.oauth.identityErr = errors.New("userinfo unavailable") },
+			wantRevoked:  []string{"refresh-1"},
+			wantUserinfo: true,
+		},
+		"no email": {
+			setup:        func(f *googleFixture) { f.oauth.identity = &model.GoogleIdentity{Subject: "1234567890"} },
+			wantErr:      usecase.ErrGoogleConnectRejected,
+			wantRevoked:  []string{"refresh-1"},
+			wantUserinfo: true,
+		},
+		"no subject": {
+			setup:        func(f *googleFixture) { f.oauth.identity = &model.GoogleIdentity{Email: "alice@example.com"} },
+			wantErr:      usecase.ErrGoogleConnectRejected,
+			wantRevoked:  []string{"refresh-1"},
+			wantUserinfo: true,
+		},
+		"encryption fails": {
+			setup:        func(f *googleFixture) { f.cipher.encryptErr = errors.New("kms unavailable") },
+			wantRevoked:  []string{"refresh-1"},
+			wantUserinfo: true,
+		},
+		"code exchange fails": {
+			setup: func(f *googleFixture) { f.oauth.exchangeErr = errors.New("invalid_grant") },
+		},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			f := newGoogleFixture()
+			tc.setup(f)
+
+			err := f.uc.HandleCallback(context.Background(), testKey, "code-1")
+			gt.Value(t, err).NotNil().Required()
+			if tc.wantErr != nil {
+				gt.Error(t, err).Is(tc.wantErr)
+			}
+			gt.Value(t, f.oauth.revoked()).Equal(tc.wantRevoked)
+			gt.Value(t, len(f.oauth.identities) > 0).Equal(tc.wantUserinfo)
+			f.assertNothingStored(t)
+		})
+	}
+}
+
+func TestGoogleWorkspaceUseCase_HandleCallbackRevokeFailureKeepsCause(t *testing.T) {
+	f := newGoogleFixture()
+	f.oauth.result.Scopes = []string{"openid"}
+	f.oauth.revokeErr = errors.New("google unavailable")
+
+	err := f.uc.HandleCallback(context.Background(), testKey, "code-1")
+	gt.Error(t, err).Is(usecase.ErrGoogleScopeNotGranted)
+	gt.Value(t, f.oauth.revoked()).Equal([]string{"refresh-1"})
+	f.assertNothingStored(t)
+}
+
+func TestGoogleWorkspaceUseCase_ReconnectReplacesCredential(t *testing.T) {
+	ctx := context.Background()
+	f := newGoogleFixture()
+	first := f.now
+	gt.NoError(t, f.uc.HandleCallback(ctx, testKey, "code-1")).Required()
+
+	f.now = first.Add(time.Hour)
+	f.oauth.result.RefreshToken = "refresh-2"
+	f.oauth.identity = &model.GoogleIdentity{Subject: "999", Email: "bob@example.com"}
+	gt.NoError(t, f.uc.HandleCallback(ctx, testKey, "code-2")).Required()
+
+	cred, err := f.repo.GoogleWorkspaceCredential().Get(ctx, testKey)
+	gt.NoError(t, err).Required()
+	gt.Bool(t, bytes.HasSuffix(cred.RefreshToken.Ciphertext, []byte("refresh-2"))).True()
+	gt.String(t, cred.Email).Equal("bob@example.com")
+	gt.Bool(t, cred.CreatedAt.Equal(first)).True()
+	gt.Bool(t, cred.UpdatedAt.Equal(f.now)).True()
+	gt.Array(t, f.oauth.revoked()).Length(0)
+}
+
+func TestGoogleWorkspaceUseCase_Status(t *testing.T) {
+	ctx := context.Background()
+	f := newGoogleFixture()
+
+	status, err := f.uc.Status(ctx, testKey)
+	gt.NoError(t, err).Required()
+	gt.Value(t, status).Equal(&usecase.GoogleWorkspaceStatus{Connected: false, Email: ""})
+
+	gt.NoError(t, f.uc.HandleCallback(ctx, testKey, "code-1")).Required()
+	status, err = f.uc.Status(ctx, testKey)
+	gt.NoError(t, err).Required()
+	gt.Value(t, status).Equal(&usecase.GoogleWorkspaceStatus{Connected: true, Email: "alice@example.com"})
+
+	// Status reads only Firestore: one exchange and one userinfo call came
+	// from HandleCallback, none from Status.
+	gt.Array(t, f.oauth.exchanges).Length(1)
+	gt.Array(t, f.oauth.identities).Length(1)
+	gt.Number(t, f.cipher.decryptCount()).Equal(0)
+}
+
+func TestGoogleWorkspaceUseCase_Disconnect(t *testing.T) {
+	cases := map[string]struct {
+		revokeErr  error
+		wantErr    bool
+		wantStored bool
+	}{
+		"revoked":               {},
+		"token already invalid": {revokeErr: goerr.Wrap(interfaces.ErrGoogleTokenInvalid, "rejected")},
+		"google unavailable":    {revokeErr: errors.New("503"), wantErr: true, wantStored: true},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			ctx := context.Background()
+			f := newGoogleFixture()
+			gt.NoError(t, f.uc.HandleCallback(ctx, testKey, "code-1")).Required()
+			f.oauth.revokeErr = tc.revokeErr
+
+			err := f.uc.Disconnect(ctx, testKey)
+			if tc.wantErr {
+				gt.Value(t, err).NotNil()
+			} else {
+				gt.NoError(t, err)
+			}
+			gt.Value(t, f.oauth.revoked()).Equal([]string{"refresh-1"})
+
+			_, getErr := f.repo.GoogleWorkspaceCredential().Get(ctx, testKey)
+			if tc.wantStored {
+				gt.NoError(t, getErr)
+			} else {
+				gt.Error(t, getErr).Is(interfaces.ErrNotFound)
+			}
+		})
+	}
+}
+
+func TestGoogleWorkspaceUseCase_DisconnectNotConnected(t *testing.T) {
+	f := newGoogleFixture()
+
+	gt.NoError(t, f.uc.Disconnect(context.Background(), testKey))
+	gt.Array(t, f.oauth.revoked()).Length(0)
+}
+
+func TestGoogleWorkspaceUseCase_DisconnectDecryptError(t *testing.T) {
+	ctx := context.Background()
+	f := newGoogleFixture()
+	gt.NoError(t, f.uc.HandleCallback(ctx, testKey, "code-1")).Required()
+	f.cipher.decryptErr = errors.New("key version disabled")
+
+	gt.Value(t, f.uc.Disconnect(ctx, testKey)).NotNil()
+	gt.Array(t, f.oauth.revoked()).Length(0)
+	_, err := f.repo.GoogleWorkspaceCredential().Get(ctx, testKey)
+	gt.NoError(t, err)
+}

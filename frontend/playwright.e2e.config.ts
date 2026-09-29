@@ -10,6 +10,9 @@ const binary = process.env.ARIEL_BIN ?? '../ariel'
 
 export const e2eTeamID = 'T0E2ETEST'
 export const e2eUserID = 'U0E2ETEST'
+// A Google OAuth client that does not exist. It enables the Google Workspace
+// endpoints; the tests stop the browser before it reaches Google.
+export const e2eGoogleClientID = 'e2e-client.apps.googleusercontent.com'
 
 export default defineConfig({
   testDir: './e2e/tests',
@@ -32,6 +35,8 @@ export default defineConfig({
       '--repository-backend memory',
       `--slack-team-id ${e2eTeamID}`,
       `--no-auth ${e2eUserID}`,
+      `--google-client-id ${e2eGoogleClientID}`,
+      '--google-client-secret e2e-client-secret',
     ].join(' '),
     url: `${baseURL}/login`,
     reuseExistingServer: false,

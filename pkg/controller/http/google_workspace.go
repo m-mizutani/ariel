@@ -1,0 +1,179 @@
+package http
+
+import (
+	"crypto/subtle"
+	"errors"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/m-mizutani/goerr/v2"
+
+	"github.com/m-mizutani/ariel/pkg/domain/model/auth"
+	"github.com/m-mizutani/ariel/pkg/usecase"
+	"github.com/m-mizutani/ariel/pkg/utils/errutil"
+)
+
+const (
+	googleStateCookieName = "ariel_google_oauth_state"
+	googleStateCookiePath = "/api/integrations/google-workspace"
+
+	// The settings page reads googleResultParam to tell the user how the
+	// connection ended. Only these fixed values are ever sent.
+	googleResultParam        = "google_workspace"
+	googleResultConnected    = "connected"
+	googleResultAccessDenied = "access_denied"
+	googleResultMissingScope = "missing_scope"
+	googleResultFailed       = "failed"
+
+	googleErrorAccessDenied = "access_denied"
+)
+
+type googleStatusResponse struct {
+	Available bool   `json:"available"`
+	Connected bool   `json:"connected"`
+	Email     string `json:"email"`
+}
+
+func redirectGoogleResult(w http.ResponseWriter, r *http.Request, result string) {
+	http.Redirect(w, r, "/settings?"+googleResultParam+"="+result, http.StatusFound)
+}
+
+func sessionFromRequest(w http.ResponseWriter, r *http.Request) (*auth.Session, bool) {
+	session, ok := auth.SessionFromContext(r.Context())
+	if !ok {
+		errutil.Handle(r.Context(), goerr.New("session is not in the request context"), "request failed")
+		writeError(r.Context(), w, http.StatusInternalServerError, errCodeInternal)
+	}
+	return session, ok
+}
+
+func (s *Server) googleStatusHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	session, ok := sessionFromRequest(w, r)
+	if !ok {
+		return
+	}
+	if s.googleUC == nil {
+		writeJSON(ctx, w, http.StatusOK, googleStatusResponse{})
+		return
+	}
+
+	status, err := s.googleUC.Status(ctx, session.Key())
+	if err != nil {
+		errutil.Handle(ctx, err, "failed to load google workspace status")
+		writeError(ctx, w, http.StatusInternalServerError, errCodeInternal)
+		return
+	}
+	writeJSON(ctx, w, http.StatusOK, googleStatusResponse{
+		Available: true,
+		Connected: status.Connected,
+		Email:     status.Email,
+	})
+}
+
+// googleConnectHandler binds the OAuth state to the session that started the
+// connection, so a callback that arrives after another user signed in to the
+// same browser is rejected instead of storing the first user's account.
+func (s *Server) googleConnectHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	session, ok := sessionFromRequest(w, r)
+	if !ok {
+		return
+	}
+
+	state, err := generateState()
+	if err != nil {
+		errutil.Handle(ctx, err, "failed to start google workspace connection")
+		writeError(ctx, w, http.StatusInternalServerError, errCodeInternal)
+		return
+	}
+
+	s.setCookie(w, googleStateCookieName, state+"."+string(session.ID), googleStateCookiePath, stateCookieMaxAge, time.Time{})
+	http.Redirect(w, r, s.googleUC.AuthorizeURL(state), http.StatusFound)
+}
+
+func (s *Server) googleCallbackHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	q := r.URL.Query()
+
+	// The state cookie is single use, whatever the outcome.
+	s.clearCookie(w, googleStateCookieName, googleStateCookiePath)
+
+	session, ok := sessionFromRequest(w, r)
+	if !ok {
+		return
+	}
+	vals := []goerr.Option{goerr.V("team_id", session.TeamID), goerr.V("user_id", session.UserID)}
+
+	if googleErr := q.Get("error"); googleErr != "" {
+		if googleErr == googleErrorAccessDenied {
+			errutil.Handle(ctx, goerr.New("user declined the google authorization",
+				append(vals, goerr.T(errutil.TagBenign))...), "google workspace connection cancelled")
+			redirectGoogleResult(w, r, googleResultAccessDenied)
+			return
+		}
+		errutil.Handle(ctx, goerr.New("google returned an authorization error",
+			append(vals, goerr.V("google_error", googleErr))...), "google workspace connection failed")
+		redirectGoogleResult(w, r, googleResultFailed)
+		return
+	}
+
+	if err := verifyGoogleState(r, q.Get("state"), session); err != nil {
+		errutil.Handle(ctx, goerr.Wrap(err, "google oauth state check failed", vals...), "google workspace connection failed")
+		redirectGoogleResult(w, r, googleResultFailed)
+		return
+	}
+	code := q.Get("code")
+	if code == "" {
+		errutil.Handle(ctx, goerr.New("authorization code is missing", vals...), "google workspace connection failed")
+		redirectGoogleResult(w, r, googleResultFailed)
+		return
+	}
+
+	if err := s.googleUC.HandleCallback(ctx, session.Key(), code); err != nil {
+		errutil.Handle(ctx, err, "google workspace connection failed")
+		if errors.Is(err, usecase.ErrGoogleScopeNotGranted) {
+			redirectGoogleResult(w, r, googleResultMissingScope)
+			return
+		}
+		redirectGoogleResult(w, r, googleResultFailed)
+		return
+	}
+	redirectGoogleResult(w, r, googleResultConnected)
+}
+
+// verifyGoogleState checks the state against the cookie set by
+// googleConnectHandler and that the same session started the connection.
+func verifyGoogleState(r *http.Request, state string, session *auth.Session) error {
+	cookie, err := r.Cookie(googleStateCookieName)
+	if err != nil {
+		return goerr.Wrap(err, "google oauth state cookie is missing")
+	}
+	cookieState, cookieSessionID, found := strings.Cut(cookie.Value, ".")
+	if !found {
+		return goerr.New("google oauth state cookie is malformed")
+	}
+	if state == "" || subtle.ConstantTimeCompare([]byte(state), []byte(cookieState)) != 1 {
+		return goerr.New("google oauth state does not match")
+	}
+	if subtle.ConstantTimeCompare([]byte(cookieSessionID), []byte(session.ID)) != 1 {
+		return goerr.New("google connection was started by another session")
+	}
+	return nil
+}
+
+func (s *Server) googleDisconnectHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	session, ok := sessionFromRequest(w, r)
+	if !ok {
+		return
+	}
+
+	if err := s.googleUC.Disconnect(ctx, session.Key()); err != nil {
+		errutil.Handle(ctx, err, "failed to disconnect google workspace")
+		writeError(ctx, w, http.StatusInternalServerError, errCodeInternal)
+		return
+	}
+	writeJSON(ctx, w, http.StatusOK, successResponse{Success: true})
+}

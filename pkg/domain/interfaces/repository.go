@@ -13,6 +13,7 @@ import (
 type Repository interface {
 	User() UserRepository
 	SlackCredential() SlackCredentialRepository
+	GoogleWorkspaceCredential() GoogleWorkspaceCredentialRepository
 	Session() SessionRepository
 	SlackEvent() SlackEventRepository
 	Close() error
@@ -31,6 +32,16 @@ type SlackCredentialRepository interface {
 	// survives. It reports whether a credential was deleted; a missing or
 	// replaced credential is not an error.
 	DeleteIfUnchanged(ctx context.Context, key model.UserKey, expected *model.SlackCredential) (bool, error)
+}
+
+type GoogleWorkspaceCredentialRepository interface {
+	Put(ctx context.Context, key model.UserKey, cred *model.GoogleWorkspaceCredential) error
+	Get(ctx context.Context, key model.UserKey) (*model.GoogleWorkspaceCredential, error)
+	// DeleteIfUnchanged removes the credential only while it still holds the
+	// ciphertext of expected, so a credential replaced by a newer connection
+	// survives. It reports whether a credential was deleted; a missing or
+	// replaced credential is not an error.
+	DeleteIfUnchanged(ctx context.Context, key model.UserKey, expected *model.GoogleWorkspaceCredential) (bool, error)
 }
 
 type SessionRepository interface {

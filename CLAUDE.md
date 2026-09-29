@@ -12,12 +12,13 @@ GraphQL.
   responses, SPA serving. Parses input and calls a usecase; no business logic,
   no repository or external API calls.
 - `pkg/usecase/` — business operations. `SlackUserAccess` is the only component
-  that reads, writes, encrypts, or decrypts Slack user tokens.
+  that reads, writes, encrypts, or decrypts Slack user tokens, and
+  `GoogleWorkspaceAccess` is the only one for Google refresh tokens.
 - `pkg/domain/` — models (`model/`, also the Firestore document format) and
   interfaces (`interfaces/`). No I/O.
 - `pkg/repository/{firestore,memory}/` — persistence.
-- `pkg/adapter/{slack,kms}/` — thin wrappers that implement `domain/interfaces`
-  over an external API. No business decisions.
+- `pkg/adapter/{slack,google,kms}/` — thin wrappers that implement
+  `domain/interfaces` over an external API. No business decisions.
 - `pkg/utils/` — `logging`, `errutil`, `async`, `safe`.
 
 Slack Events API handlers acknowledge within three seconds and run the rest in
@@ -32,8 +33,9 @@ Slack Events API handlers acknowledge within three seconds and run the rest in
 - The user key of a request comes only from a verified Slack event or a verified
   web session. A user's token is used only for that same user's requests.
 - The KMS additional authenticated data of a token is
-  `ariel:slack-user-token:v1:{TeamID}:{UserID}`. Changing it makes stored tokens
-  undecryptable; add a new version instead.
+  `ariel:slack-user-token:v1:{TeamID}:{UserID}` for Slack and
+  `ariel:google-refresh-token:v1:{TeamID}:{UserID}` for Google. Changing either
+  makes stored tokens undecryptable; add a new version instead.
 
 ## Conventions
 

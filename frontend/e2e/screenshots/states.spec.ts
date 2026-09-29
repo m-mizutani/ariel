@@ -59,6 +59,22 @@ async function signedOut(page: Page) {
   await mockMe(page, 401, '{"error":"unauthenticated"}')
 }
 
+const googleNotConnected = { available: true, connected: false, email: '' }
+const googleConnected = { available: true, connected: true, email: 'alice@example.com' }
+
+async function mockGoogle(page: Page, status: number, body: object) {
+  await page.route('**/api/integrations/google-workspace', (route) =>
+    route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) }),
+  )
+}
+
+// The settings page of a user linked to Slack, with the given Google Workspace
+// status.
+async function settingsWithGoogle(page: Page, google: object) {
+  await mockMe(page, 200, me(true))
+  await mockGoogle(page, 200, google)
+}
+
 test('login: initial', async ({ page }) => {
   await signedOut(page)
   await page.goto('/login')
@@ -109,6 +125,7 @@ test('sign-in check: failed', async ({ page }) => {
 
 test('settings: Slack connected', async ({ page }) => {
   await mockMe(page, 200, me(true))
+  await mockGoogle(page, 200, googleNotConnected)
   await page.goto('/settings')
   await expect(page.getByRole('listitem', { name: 'Slack' }).getByText('Connected')).toBeVisible()
   await page.screenshot(shot('settings-slack-connected'))
@@ -116,6 +133,7 @@ test('settings: Slack connected', async ({ page }) => {
 
 test('settings: Slack not connected', async ({ page }) => {
   await mockMe(page, 200, me(false))
+  await mockGoogle(page, 200, googleNotConnected)
   await page.goto('/settings')
   await expect(page.getByRole('button', { name: 'Connect Slack' })).toBeEnabled()
   await page.screenshot(shot('settings-slack-not-connected'))
@@ -123,6 +141,7 @@ test('settings: Slack not connected', async ({ page }) => {
 
 test('settings: connecting Slack', async ({ page }) => {
   await mockMe(page, 200, me(false))
+  await mockGoogle(page, 200, googleNotConnected)
   // See 'login: redirecting to Slack': a 204 keeps the current document.
   await page.route('**/api/auth/login', (route) => route.fulfill({ status: 204 }))
   await page.goto('/settings')
@@ -133,6 +152,7 @@ test('settings: connecting Slack', async ({ page }) => {
 
 test('settings: signing out', async ({ page }) => {
   await mockMe(page, 200, me(true))
+  await mockGoogle(page, 200, googleNotConnected)
   await page.route('**/api/auth/logout', () => new Promise(() => {}))
   await page.goto('/settings')
   await page.getByRole('button', { name: 'Sign out' }).click()
@@ -142,6 +162,7 @@ test('settings: signing out', async ({ page }) => {
 
 test('settings: sign-out failed', async ({ page }) => {
   await mockMe(page, 200, me(true))
+  await mockGoogle(page, 200, googleNotConnected)
   await page.route('**/api/auth/logout', (route) =>
     route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"internal_error"}' }),
   )
@@ -150,3 +171,86 @@ test('settings: sign-out failed', async ({ page }) => {
   await expect(page.getByRole('alert')).toContainText('Could not sign out.')
   await page.screenshot(shot('settings-sign-out-failed'))
 })
+
+const googleRow = (page: Page) => page.getByRole('listitem', { name: 'Google Workspace' })
+
+test('settings: Google Workspace status being checked', async ({ page }) => {
+  await mockMe(page, 200, me(true))
+  await page.route('**/api/integrations/google-workspace', () => new Promise(() => {}))
+  await page.goto('/settings')
+  await expect(googleRow(page).getByText('Checking…')).toBeVisible()
+  await page.screenshot(shot('settings-google-checking'))
+})
+
+test('settings: Google Workspace status check failed', async ({ page }) => {
+  await mockMe(page, 200, me(true))
+  await mockGoogle(page, 500, { error: 'internal_error' })
+  await page.goto('/settings')
+  await expect(googleRow(page).getByRole('button', { name: 'Check Google Workspace again' })).toBeVisible()
+  await page.screenshot(shot('settings-google-check-failed'))
+})
+
+test('settings: Google Workspace not available', async ({ page }) => {
+  await settingsWithGoogle(page, { available: false, connected: false, email: '' })
+  await page.goto('/settings')
+  await expect(googleRow(page).getByText('Not available')).toBeVisible()
+  await page.screenshot(shot('settings-google-unavailable'))
+})
+
+test('settings: Google Workspace not connected', async ({ page }) => {
+  await settingsWithGoogle(page, googleNotConnected)
+  await page.goto('/settings')
+  await expect(page.getByRole('button', { name: 'Connect Google Workspace' })).toBeEnabled()
+  await page.screenshot(shot('settings-google-not-connected'))
+})
+
+test('settings: connecting Google Workspace', async ({ page }) => {
+  await settingsWithGoogle(page, googleNotConnected)
+  // See 'login: redirecting to Slack': a 204 keeps the current document.
+  await page.route('**/api/integrations/google-workspace/connect', (route) => route.fulfill({ status: 204 }))
+  await page.goto('/settings')
+  await page.getByRole('button', { name: 'Connect Google Workspace' }).click({ noWaitAfter: true })
+  await expect(page.getByRole('button', { name: 'Redirecting to Google Workspace…' })).toBeDisabled()
+  await page.screenshot(shot('settings-google-connecting'))
+})
+
+test('settings: Google Workspace connected', async ({ page }) => {
+  await settingsWithGoogle(page, googleConnected)
+  await page.goto('/settings')
+  await expect(googleRow(page).getByText('Account: alice@example.com')).toBeVisible()
+  await page.screenshot(shot('settings-google-connected'))
+})
+
+test('settings: disconnecting Google Workspace', async ({ page }) => {
+  await settingsWithGoogle(page, googleConnected)
+  await page.route('**/api/integrations/google-workspace/disconnect', () => new Promise(() => {}))
+  await page.goto('/settings')
+  await page.getByRole('button', { name: 'Disconnect Google Workspace' }).click()
+  await expect(page.getByRole('button', { name: 'Disconnecting…' })).toBeDisabled()
+  await page.screenshot(shot('settings-google-disconnecting'))
+})
+
+test('settings: disconnecting Google Workspace failed', async ({ page }) => {
+  await settingsWithGoogle(page, googleConnected)
+  await page.route('**/api/integrations/google-workspace/disconnect', (route) =>
+    route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"internal_error"}' }),
+  )
+  await page.goto('/settings')
+  await page.getByRole('button', { name: 'Disconnect Google Workspace' }).click()
+  await expect(googleRow(page).getByRole('alert')).toContainText('Could not disconnect Google Workspace.')
+  await page.screenshot(shot('settings-google-disconnect-failed'))
+})
+
+for (const [result, name, text] of [
+  ['connected', 'settings-google-notice-connected', 'Google Workspace is connected.'],
+  ['access_denied', 'settings-google-notice-access-denied', 'you cancelled the request on Google'],
+  ['missing_scope', 'settings-google-notice-missing-scope', 'you did not allow every requested permission'],
+  ['failed', 'settings-google-notice-failed', 'Could not connect Google Workspace.'],
+] as const) {
+  test(`settings: Google Workspace connection result ${result}`, async ({ page }) => {
+    await settingsWithGoogle(page, result === 'connected' ? googleConnected : googleNotConnected)
+    await page.goto(`/settings?google_workspace=${result}`)
+    await expect(page.getByText(text)).toBeVisible()
+    await page.screenshot(shot(name))
+  })
+}

@@ -14,4 +14,16 @@ var (
 
 	// ErrSlackNotConnected means no Slack user token is stored for the user.
 	ErrSlackNotConnected = errors.New("slack account is not connected")
+
+	// ErrGoogleScopeNotGranted means the user did not allow every required
+	// Google scope on the consent screen.
+	ErrGoogleScopeNotGranted = errors.New("required google scope was not granted")
+
+	// ErrGoogleConnectRejected means Google completed the authorization but
+	// the result cannot be stored (no refresh token, no account identity).
+	ErrGoogleConnectRejected = errors.New("google connection rejected")
+
+	// ErrGoogleWorkspaceNotConnected means no Google refresh token is stored
+	// for the user.
+	ErrGoogleWorkspaceNotConnected = errors.New("google workspace is not connected")
 )
