@@ -107,17 +107,22 @@ must be able to see the result without running the app.
    states in step with the screen states listed in the spec.
 2. Run `task screenshots` (`pnpm screenshots` in `frontend/`). The images go to
    `frontend/screenshots/`, which is not committed.
-3. Attach the PNG files directly to the PR description in the GitHub web
-   editor (drag and drop), under a "Screenshots" heading, one per state with a
-   label naming the state. GitHub stores them as attachments of the PR.
+3. Attach the PNG files directly to the PR description with `gh`. In the body
+   file, write a "Screenshots" section with one entry per state, each a label
+   naming the state and a reference to the local file, for example
+   `![Login: failed](./frontend/screenshots/login-failed.png)`. Then run, from
+   the repository root:
+
+   ```sh
+   gh pr edit <number> --body-file <body.md> \
+     --attach './frontend/screenshots/login-failed.png#Login: failed' ...
+   ```
+
+   `gh` uploads each attached file as an attachment of the PR and rewrites the
+   matching reference in the body to the uploaded asset (`gh pr create` takes
+   the same `--attach` flag). Check the rendered description afterwards.
 4. Never commit screenshots, and never push them to any branch (including a
    dedicated one) or other place inside the repository.
-
-`gh` and the GitHub API cannot attach images to a PR description, so an agent
-working from the command line prepares the "Screenshots" section with one
-labeled entry per state, gives the user the list of PNG files in
-`frontend/screenshots/` to attach, and does not report the task as complete
-until the user confirms the images are attached.
 
 If the screenshots cannot be taken, say so in the PR description and in the
 report instead of treating the change as verified.
