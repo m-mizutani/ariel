@@ -7,8 +7,9 @@ import { e2eUserID } from '../../playwright.e2e.config'
 async function signIn(page: Page) {
   await page.goto('/login')
   await page.getByRole('button', { name: 'Sign in with Slack' }).click()
-  await expect(page).toHaveURL('/')
-  await expect(page.getByRole('heading', { name: `Signed in as ${e2eUserID}` })).toBeVisible()
+  await expect(page).toHaveURL('/settings')
+  await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible()
+  await expect(page.getByText(`Signed in as ${e2eUserID}`)).toBeVisible()
 }
 
 test('a signed-out visitor is sent to the login page', async ({ page }) => {
@@ -17,11 +18,11 @@ test('a signed-out visitor is sent to the login page', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Sign in with Slack' })).toBeVisible()
 })
 
-test('signing in shows the home page and sets HttpOnly session cookies', async ({ page, context }) => {
+test('signing in shows the settings page and sets HttpOnly session cookies', async ({ page, context }) => {
   await signIn(page)
 
   // A user signed in without Slack has no stored token.
-  await expect(page.getByRole('alert')).toContainText('Your Slack account is not linked.')
+  await expect(page.getByRole('listitem', { name: 'Slack' }).getByText('Not connected')).toBeVisible()
 
   const cookies = await context.cookies()
   const names = cookies.map((c) => c.name)
@@ -37,13 +38,13 @@ test('signing in shows the home page and sets HttpOnly session cookies', async (
 test('the session survives a reload', async ({ page }) => {
   await signIn(page)
   await page.reload()
-  await expect(page.getByRole('heading', { name: `Signed in as ${e2eUserID}` })).toBeVisible()
+  await expect(page.getByText(`Signed in as ${e2eUserID}`)).toBeVisible()
 })
 
-test('a signed-in user opening the login page is sent home', async ({ page }) => {
+test('a signed-in user opening the login page is sent to the settings page', async ({ page }) => {
   await signIn(page)
   await page.goto('/login')
-  await expect(page).toHaveURL('/')
+  await expect(page).toHaveURL('/settings')
 })
 
 test('signing out ends the session', async ({ page, context }) => {

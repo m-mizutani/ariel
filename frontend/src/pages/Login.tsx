@@ -19,7 +19,7 @@ export default function Login() {
   const [redirecting, setRedirecting] = useState(false)
 
   if (state.kind === 'authenticated') {
-    return <Navigate to="/" replace />
+    return <Navigate to="/settings" replace />
   }
 
   const error = errorMessage(params.get('error'))

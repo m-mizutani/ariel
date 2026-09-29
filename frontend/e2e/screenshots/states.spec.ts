@@ -107,36 +107,46 @@ test('sign-in check: failed', async ({ page }) => {
   await page.screenshot(shot('check-failed'))
 })
 
-test('home: Slack account linked', async ({ page }) => {
+test('settings: Slack connected', async ({ page }) => {
   await mockMe(page, 200, me(true))
-  await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Signed in as Alice Example' })).toBeVisible()
-  await page.screenshot(shot('home-linked'))
+  await page.goto('/settings')
+  await expect(page.getByRole('listitem', { name: 'Slack' }).getByText('Connected')).toBeVisible()
+  await page.screenshot(shot('settings-slack-connected'))
 })
 
-test('home: Slack account not linked', async ({ page }) => {
+test('settings: Slack not connected', async ({ page }) => {
   await mockMe(page, 200, me(false))
-  await page.goto('/')
-  await expect(page.getByRole('alert')).toContainText('not linked')
-  await page.screenshot(shot('home-not-linked'))
+  await page.goto('/settings')
+  await expect(page.getByRole('button', { name: 'Connect Slack' })).toBeEnabled()
+  await page.screenshot(shot('settings-slack-not-connected'))
 })
 
-test('home: signing out', async ({ page }) => {
+test('settings: connecting Slack', async ({ page }) => {
+  await mockMe(page, 200, me(false))
+  // See 'login: redirecting to Slack': a 204 keeps the current document.
+  await page.route('**/api/auth/login', (route) => route.fulfill({ status: 204 }))
+  await page.goto('/settings')
+  await page.getByRole('button', { name: 'Connect Slack' }).click({ noWaitAfter: true })
+  await expect(page.getByRole('button', { name: 'Redirecting to Slack…' })).toBeDisabled()
+  await page.screenshot(shot('settings-connecting-slack'))
+})
+
+test('settings: signing out', async ({ page }) => {
   await mockMe(page, 200, me(true))
   await page.route('**/api/auth/logout', () => new Promise(() => {}))
-  await page.goto('/')
+  await page.goto('/settings')
   await page.getByRole('button', { name: 'Sign out' }).click()
   await expect(page.getByRole('button', { name: 'Signing out…' })).toBeDisabled()
-  await page.screenshot(shot('home-signing-out'))
+  await page.screenshot(shot('settings-signing-out'))
 })
 
-test('home: sign-out failed', async ({ page }) => {
+test('settings: sign-out failed', async ({ page }) => {
   await mockMe(page, 200, me(true))
   await page.route('**/api/auth/logout', (route) =>
     route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"internal_error"}' }),
   )
-  await page.goto('/')
+  await page.goto('/settings')
   await page.getByRole('button', { name: 'Sign out' }).click()
   await expect(page.getByRole('alert')).toContainText('Could not sign out.')
-  await page.screenshot(shot('home-sign-out-failed'))
+  await page.screenshot(shot('settings-sign-out-failed'))
 })
