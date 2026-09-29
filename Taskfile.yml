@@ -1,0 +1,101 @@
+# https://taskfile.dev
+
+version: "3"
+
+tasks:
+  build:
+    desc: "Build the frontend and the ariel binary"
+    cmds:
+      - task: build:frontend
+      - go build -o ariel .
+
+  build:frontend:
+    desc: "Build the frontend into frontend/dist (embedded into the Go binary)"
+    dir: frontend
+    cmds:
+      - pnpm install --frozen-lockfile
+      - pnpm build
+
+  dev:frontend:
+    desc: "Run the Vite dev server on port 5173, forwarding /api to localhost:8080"
+    dir: frontend
+    cmds:
+      - pnpm dev
+
+  e2e:
+    desc: "Build the server and run the Playwright E2E tests against it (--no-auth, in-memory repository)"
+    cmds:
+      - task: build
+      - cd frontend && pnpm e2e
+
+  screenshots:
+    desc: "Capture Playwright screenshots of every screen state into frontend/screenshots/"
+    dir: frontend
+    cmds:
+      - pnpm screenshots
+
+  screenshots:upload:
+    desc: "Upload frontend/screenshots/*.png to the screenshots branch under pr-<PR>/ (usage: task screenshots:upload PR=12)"
+    requires:
+      vars: [PR]
+    cmds:
+      - |
+        set -eu
+        # The screenshots branch only stores images for PR descriptions and is
+        # never merged. A commit is added without checking the branch out, so
+        # the working tree and the current branch are left untouched.
+        index=$(mktemp)
+        trap 'rm -f "$index"' EXIT
+        parent=""
+        if git fetch origin screenshots 2>/dev/null; then
+          parent=$(git rev-parse FETCH_HEAD)
+          GIT_INDEX_FILE="$index" git read-tree "$parent"
+        else
+          GIT_INDEX_FILE="$index" git read-tree --empty
+        fi
+        for f in frontend/screenshots/*.png; do
+          blob=$(git hash-object -w "$f")
+          GIT_INDEX_FILE="$index" git update-index --add --cacheinfo "100644,$blob,pr-{{.PR}}/$(basename "$f")"
+        done
+        tree=$(GIT_INDEX_FILE="$index" git write-tree)
+        if [ -n "$parent" ]; then
+          commit=$(git commit-tree "$tree" -p "$parent" -m "chore: screenshots for PR #{{.PR}}")
+        else
+          commit=$(git commit-tree "$tree" -m "chore: screenshots for PR #{{.PR}}")
+        fi
+        git push origin "$commit:refs/heads/screenshots"
+        for f in frontend/screenshots/*.png; do
+          echo "https://raw.githubusercontent.com/m-mizutani/ariel/screenshots/pr-{{.PR}}/$(basename "$f")"
+        done
+
+  lint:frontend:
+    desc: "Run ESLint on the frontend"
+    dir: frontend
+    cmds:
+      - pnpm lint
+
+  test:
+    desc: "Run the Go tests. The Firestore repository tests need the emulator (task test:firestore) or TEST_FIRESTORE_PROJECT_ID."
+    cmds:
+      - go test ./...
+
+  test:firestore:
+    desc: "Run the Go tests against a Firestore emulator in Docker"
+    cmds:
+      - |
+        docker rm -f ariel-firestore-emulator >/dev/null 2>&1 || true
+        docker run -d --name ariel-firestore-emulator -p 28615:28615 \
+          google/cloud-sdk@sha256:c2b7406c44f3aeaf2c90854337c65de4ac7a7ab07e2ab592eb8df140af1129b9 \
+          gcloud emulators firestore start --host-port=0.0.0.0:28615
+        trap 'docker rm -f ariel-firestore-emulator >/dev/null 2>&1' EXIT
+        i=0
+        until curl -s http://127.0.0.1:28615/ >/dev/null 2>&1; do
+          i=$((i+1))
+          if [ "$i" -ge 90 ]; then
+            echo "firestore emulator did not become ready" >&2
+            docker logs ariel-firestore-emulator || true
+            exit 1
+          fi
+          sleep 1
+        done
+        FIRESTORE_EMULATOR_HOST=127.0.0.1:28615 go test ./...

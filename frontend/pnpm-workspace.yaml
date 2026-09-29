@@ -1,0 +1,8 @@
+allowBuilds:
+  esbuild: true
+
+# Supply-chain hardening: only install package versions at least 7 days old
+# (10080 minutes) to avoid freshly published malicious releases.
+minimumReleaseAge: 10080
+
+autoInstallPeers: true

@@ -1,0 +1,34 @@
+{
+  "name": "ariel-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.6.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "screenshots": "vite build && playwright test -c playwright.screenshots.config.ts",
+    "e2e": "playwright test -c playwright.e2e.config.ts"
+  },
+  "dependencies": {
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "react-router": "^8.3.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.3",
+    "@typescript-eslint/parser": "^8.18.0",
+    "@vitejs/plugin-react": "4.7.0",
+    "eslint": "^9.17.0",
+    "jsdom": "^28.0.0",
+    "typescript": "5.9.3",
+    "vite": "6.4.1",
+    "vitest": "^4.0.18"
+  }
+}

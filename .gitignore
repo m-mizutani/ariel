@@ -27,6 +27,19 @@ go.work.sum
 # env file
 .env
 
+# Binary built by `task build`
+/ariel
+
+# Frontend build output (embedded into the binary) and dependencies
+frontend/dist/*
+!frontend/dist/.gitkeep
+frontend/node_modules/
+
+# Playwright screenshots and reports (uploaded to PRs, not committed)
+frontend/screenshots/
+frontend/test-results/
+frontend/playwright-report/
+
 # Editor/IDE
 # .idea/
 # .vscode/
