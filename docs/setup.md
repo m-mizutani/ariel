@@ -165,5 +165,8 @@ Google Cloud credentials are read from Application Default Credentials.
   repository. Install the browser once with
   `pnpm exec playwright install chromium` in `frontend/`.
 - Screenshots for pull requests: `task screenshots` captures every screen state
-  into `frontend/screenshots/`; `task screenshots:upload PR=<number>` publishes
-  them on the `screenshots` branch and prints the URLs to paste into the PR.
+  into `frontend/screenshots/`. Attach them to the PR description with
+  `gh pr edit <number> --body-file <body.md> --attach '<file>#<alt text>' ...`;
+  a body reference to the same path, such as
+  `![Login: failed](./frontend/screenshots/login-failed.png)`, is rewritten to
+  the uploaded image. Do not commit them or push them to any branch.
