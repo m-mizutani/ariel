@@ -7,17 +7,20 @@ import Settings from './Settings'
 const startLogin = vi.fn()
 const startGoogleWorkspaceConnect = vi.fn()
 const startNotionConnect = vi.fn()
+const startGitHubConnect = vi.fn()
 vi.mock('../api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../api')>()),
   startLogin: () => startLogin(),
   startGoogleWorkspaceConnect: () => startGoogleWorkspaceConnect(),
   startNotionConnect: () => startNotionConnect(),
+  startGitHubConnect: () => startGitHubConnect(),
 }))
 
 function resetStarts() {
   startLogin.mockReset()
   startGoogleWorkspaceConnect.mockReset()
   startNotionConnect.mockReset()
+  startGitHubConnect.mockReset()
 }
 
 function me(connected: boolean) {
@@ -54,6 +57,15 @@ const notionNotConnected = notionStatus({})
 const notionConnected = notionStatus({ connected: true, user_name: 'Alice Example', workspace_name: 'Acme' })
 
 const notionPath = '/api/v1/integrations/notion'
+
+function githubStatus(status: { available: boolean; connected: boolean; login: string }) {
+  return JSON.stringify(status)
+}
+
+const githubNotConnected = githubStatus({ available: true, connected: false, login: '' })
+const githubConnected = githubStatus({ available: true, connected: true, login: 'octocat' })
+
+const githubPath = '/api/v1/integrations/github'
 
 // Shows the current URL, so tests can check that the result parameter is
 // removed after the notice is shown.
@@ -92,8 +104,15 @@ function stubFetch(handler: Handler) {
 }
 
 // Answers /api/v1/auth/me with meBody, the Google Workspace status with
-// googleBody, and the Notion status with notionBody; other paths go to rest.
-function stubApi(meBody: string, googleBody: string = googleNotConnected, rest?: Handler, notionBody = notionNotConnected) {
+// googleBody, the Notion status with notionBody, and the GitHub status with
+// githubBody; other paths go to rest.
+function stubApi(
+  meBody: string,
+  googleBody: string = googleNotConnected,
+  rest?: Handler,
+  notionBody = notionNotConnected,
+  githubBody = githubNotConnected,
+) {
   return stubFetch(async (url, init) => {
     if (url === '/api/v1/auth/me') {
       return new Response(meBody, { status: 200 })
@@ -103,6 +122,9 @@ function stubApi(meBody: string, googleBody: string = googleNotConnected, rest?:
     }
     if (url === notionPath) {
       return new Response(notionBody, { status: 200 })
+    }
+    if (url === githubPath) {
+      return new Response(githubBody, { status: 200 })
     }
     if (rest) {
       return rest(url, init)
@@ -154,21 +176,14 @@ describe('Settings', () => {
     expect(screen.getByRole('button', { name: 'Redirecting to Slack…' })).toBeDisabled()
   })
 
-  it('shows GitHub as coming soon with a disabled button', async () => {
+  it('fetches the user and the status of each integration once', async () => {
     const fetchMock = stubApi(me(true))
     renderSettings()
 
-    const service = await row('GitHub')
-    expect(service.getByText('Coming soon')).toBeInTheDocument()
-    const button = service.getByRole('button', { name: 'Connect GitHub' })
-    expect(button).toBeDisabled()
-
-    fireEvent.click(button)
-    expect(startLogin).not.toHaveBeenCalled()
-    expect(startGoogleWorkspaceConnect).not.toHaveBeenCalled()
-    expect(startNotionConnect).not.toHaveBeenCalled()
-    // /auth/me and the status of Google Workspace and Notion; nothing else.
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3))
+    await screen.findByRole('heading', { name: 'Integrations' })
+    expect(screen.queryByText('Coming soon')).toBeNull()
+    // /auth/me and the status of Google Workspace, Notion, and GitHub; nothing else.
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4))
   })
 
   it('lists the services in display order', async () => {
@@ -551,6 +566,178 @@ describe('Settings: Notion', () => {
   it('ignores an unknown result', async () => {
     stubNotion(ok(notionNotConnected))
     renderSettings('/settings?notion=unknown')
+
+    await screen.findByRole('heading', { name: 'Integrations' })
+    expect(screen.queryByRole('status')).toBeNull()
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+})
+
+// Answers every status API with a not-connected account, except GitHub, which
+// github answers.
+function stubGitHub(github: Handler) {
+  return stubFetch(async (url, init) => {
+    if (url === githubPath || url.startsWith(`${githubPath}/`)) {
+      return github(url, init)
+    }
+    if (url === googlePath) {
+      return new Response(googleNotConnected, { status: 200 })
+    }
+    if (url === notionPath) {
+      return new Response(notionNotConnected, { status: 200 })
+    }
+    return new Response(me(true), { status: 200 })
+  })
+}
+
+describe('Settings: GitHub', () => {
+  beforeEach(resetStarts)
+
+  it('shows that the status is being checked', async () => {
+    stubGitHub(() => new Promise<Response>(() => {}))
+    renderSettings()
+
+    const github = await row('GitHub')
+    expect(github.getByText('Checking…')).toBeInTheDocument()
+    expect(github.queryByRole('button')).toBeNull()
+  })
+
+  it('reports a failed status check and checks only GitHub again', async () => {
+    let failing = true
+    const fetchMock = stubGitHub(async () =>
+      failing
+        ? new Response('{"error":"internal_error"}', { status: 500 })
+        : new Response(githubNotConnected, { status: 200 }),
+    )
+    renderSettings()
+
+    const github = await row('GitHub')
+    expect(await github.findByText('Could not load the connection status.')).toBeInTheDocument()
+
+    failing = false
+    fireEvent.click(github.getByRole('button', { name: 'Check GitHub again' }))
+
+    expect(await github.findByText('Not connected')).toBeInTheDocument()
+    expect(callsTo(fetchMock, githubPath)).toHaveLength(2)
+    expect(callsTo(fetchMock, googlePath)).toHaveLength(1)
+    expect(callsTo(fetchMock, notionPath)).toHaveLength(1)
+  })
+
+  it('shows that the server has not set up the integration', async () => {
+    stubApi(
+      me(true),
+      googleNotConnected,
+      undefined,
+      notionNotConnected,
+      githubStatus({ available: false, connected: false, login: '' }),
+    )
+    renderSettings()
+
+    const github = await row('GitHub')
+    expect(await github.findByText('Not available')).toBeInTheDocument()
+    expect(github.getByText('Your Ariel administrator has not set up this integration.')).toBeInTheDocument()
+    expect(github.queryByRole('button')).toBeNull()
+  })
+
+  it('starts the GitHub authorization and disables the button', async () => {
+    stubApi(me(true))
+    renderSettings()
+
+    const github = await row('GitHub')
+    expect(await github.findByText('Not connected')).toBeInTheDocument()
+    expect(github.getByText(/read-only access to the repositories, issues, pull requests/)).toBeInTheDocument()
+
+    fireEvent.click(github.getByRole('button', { name: 'Connect GitHub' }))
+
+    expect(startGitHubConnect).toHaveBeenCalledTimes(1)
+    expect(startLogin).not.toHaveBeenCalled()
+    expect(startGoogleWorkspaceConnect).not.toHaveBeenCalled()
+    expect(startNotionConnect).not.toHaveBeenCalled()
+    expect(github.getByRole('button', { name: 'Redirecting to GitHub…' })).toBeDisabled()
+  })
+
+  it('shows the connected account with a way to disconnect it', async () => {
+    stubApi(me(true), googleNotConnected, undefined, notionNotConnected, githubConnected)
+    renderSettings()
+
+    const github = await row('GitHub')
+    expect(await github.findByText('Connected')).toBeInTheDocument()
+    expect(github.getByText('Account: @octocat')).toBeInTheDocument()
+    expect(github.getByRole('button', { name: 'Disconnect GitHub' })).toBeEnabled()
+  })
+
+  it('disconnects and checks only GitHub again', async () => {
+    let connected = true
+    let release: () => void = () => {}
+    const fetchMock = stubGitHub(async (url, init) => {
+      if (url === `${githubPath}/disconnect` && init?.method === 'POST') {
+        await new Promise<void>((resolve) => {
+          release = resolve
+        })
+        connected = false
+        return new Response('{"success":true}', { status: 200 })
+      }
+      return new Response(connected ? githubConnected : githubNotConnected, { status: 200 })
+    })
+    renderSettings()
+
+    const github = await row('GitHub')
+    fireEvent.click(await github.findByRole('button', { name: 'Disconnect GitHub' }))
+
+    expect(await github.findByRole('button', { name: 'Disconnecting…' })).toBeDisabled()
+    release()
+
+    expect(await github.findByText('Not connected')).toBeInTheDocument()
+    expect(github.getByRole('button', { name: 'Connect GitHub' })).toBeEnabled()
+    expect(github.queryByText(/Account:/)).toBeNull()
+    expect(callsTo(fetchMock, `${githubPath}/disconnect`, 'POST')).toHaveLength(1)
+    expect(callsTo(fetchMock, githubPath)).toHaveLength(2)
+    expect(callsTo(fetchMock, googlePath)).toHaveLength(1)
+    expect(callsTo(fetchMock, notionPath)).toHaveLength(1)
+  })
+
+  it('reports a failed disconnection and keeps the account connected', async () => {
+    stubGitHub(async (url, init) =>
+      url === `${githubPath}/disconnect` && init?.method === 'POST'
+        ? new Response('{"error":"internal_error"}', { status: 500 })
+        : new Response(githubConnected, { status: 200 }),
+    )
+    renderSettings()
+
+    const github = await row('GitHub')
+    fireEvent.click(await github.findByRole('button', { name: 'Disconnect GitHub' }))
+
+    expect(await github.findByRole('alert')).toHaveTextContent('Could not disconnect GitHub. Try again.')
+    expect(github.getByText('Connected')).toBeInTheDocument()
+    await waitFor(() => expect(github.getByRole('button', { name: 'Disconnect GitHub' })).toBeEnabled())
+  })
+
+  it.each([
+    ['connected', 'status', 'GitHub is connected.'],
+    ['access_denied', 'alert', 'GitHub was not connected because you cancelled the request on GitHub.'],
+    [
+      'account_in_use',
+      'alert',
+      'GitHub was not connected because this GitHub account is already connected to another Ariel user. Connect a different GitHub account.',
+    ],
+    ['failed', 'alert', 'Could not connect GitHub. Try again.'],
+  ])('shows the result %s and removes it from the URL', async (result, role, text) => {
+    stubApi(
+      me(true),
+      googleNotConnected,
+      undefined,
+      notionNotConnected,
+      result === 'connected' ? githubConnected : githubNotConnected,
+    )
+    renderSettings(`/settings?github=${result}`)
+
+    expect(await screen.findByRole(role, { name: '' })).toHaveTextContent(text)
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(/^\/settings$/))
+  })
+
+  it('ignores an unknown result', async () => {
+    stubApi(me(true))
+    renderSettings('/settings?github=missing_scope')
 
     await screen.findByRole('heading', { name: 'Integrations' })
     expect(screen.queryByRole('status')).toBeNull()

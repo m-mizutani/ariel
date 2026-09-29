@@ -13,6 +13,9 @@ export const e2eUserID = 'U0E2ETEST'
 // A Google OAuth client that does not exist. It enables the Google Workspace
 // endpoints; the tests stop the browser before it reaches Google.
 export const e2eGoogleClientID = 'e2e-client.apps.googleusercontent.com'
+// A GitHub App that does not exist. It enables the GitHub endpoints; the
+// tests stop the browser before it reaches GitHub.
+export const e2eGitHubClientID = 'Iv1.e2e0000000000000'
 
 // Notion is served by e2e/fake-notion.mjs, so a connection runs from the
 // authorization to the token exchange and the revocation.
@@ -60,6 +63,8 @@ export default defineConfig({
         `--notion-client-secret ${e2eNotionClientSecret}`,
         `--notion-workspace-id ${e2eNotionWorkspaceID}`,
         `--notion-api-url ${fakeNotionURL}`,
+        `--github-client-id ${e2eGitHubClientID}`,
+        '--github-client-secret e2e-client-secret',
       ].join(' '),
       url: `${baseURL}/login`,
       reuseExistingServer: false,

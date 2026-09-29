@@ -1,8 +1,8 @@
 # Setup
 
 This document describes how to run Ariel: the Slack app, Google Cloud (Cloud KMS
-and Firestore), the optional Google Workspace and Notion integrations, the
-server configuration, and local development.
+and Firestore), the optional Google Workspace, Notion, and GitHub
+integrations, the server configuration, and local development.
 
 ## How Ariel uses Slack
 
@@ -43,8 +43,8 @@ its accounts.
 - Google lets a user uncheck individual permissions on the consent screen. If
   the Calendar, Drive, or Gmail permission is not granted, Ariel revokes the
   grant at Google, stores nothing, and tells the user to connect again.
-- Ariel stores the connected account as authorized in that sign-in; it does not
-  compare it with the Slack account.
+- Ariel connects the Google account that the user authorizes on Google; it
+  does not compare that account with the user's Slack account.
 - One Google account can be connected to only one Ariel user. Google revokes a
   grant per Google account and Cloud project, not per token, so if two users
   shared one Google account, one user's disconnection would end the other's
@@ -104,6 +104,49 @@ connection to any other workspace.
   and deletes the stored tokens. Signing out of Ariel does not disconnect
   Notion.
 
+## How Ariel uses GitHub
+
+The GitHub integration is optional and is enabled only when the server has a
+GitHub App (step 6). Each deployment creates its own GitHub App in the
+organization that uses Ariel.
+
+- Each user connects their own GitHub account on the settings page. Ariel
+  obtains a user access token of the GitHub App, so it acts with that user's
+  own permissions. The token reaches only resources that satisfy all three
+  conditions: the user can access them, the app has the permission for them
+  (the permission table in step 6), and the app is installed on the account
+  that owns them. A repository of an organization where the app is not
+  installed stays unreadable even after the user connects.
+- The app gets read permissions only. Ariel currently obtains and keeps this
+  access only; reading GitHub will be added with the features that need it.
+- Ariel does not use the app's private key or installation tokens, so it
+  never reads GitHub on behalf of the app itself.
+- Ariel connects the GitHub account that the user authorizes on GitHub; it
+  does not compare that account with the user's Slack account.
+- One GitHub account can be connected to only one Ariel user. GitHub deletes an
+  app authorization per GitHub account, not per token, so if two users shared
+  one GitHub account, one user's disconnection would end the other's access. A
+  user who authorizes an account that is already connected to someone else is
+  told so, and Ariel stores nothing.
+- A user who is already connected cannot connect a second account: the
+  connection is ignored and the settings page stays as it is. Disconnect first
+  to switch accounts.
+- The access token expires after eight hours and the refresh token after six
+  months (GitHub's default for GitHub Apps). Ariel stores both, encrypted with
+  Cloud KMS, and refreshes the access token when it is used within five
+  minutes of expiring. A refresh token can be used only once, so when several
+  instances run, only one of them refreshes at a time. A connection that has
+  not been used for six months cannot be refreshed any more; the settings page
+  shows it as **Not connected**, and the user connects again.
+- **Disconnect GitHub** on the settings page deletes the user's authorization of
+  the app at GitHub, which ends every token of it, and then deletes the stored
+  tokens. When GitHub cannot be reached, nothing is deleted and the page asks
+  the user to try again. Signing out of Ariel does not disconnect GitHub.
+- A user can also revoke the app under **Settings** → **Applications** →
+  **Authorized GitHub Apps** on GitHub. Ariel does not receive a notification
+  of that, so the settings page keeps showing **Connected** until the tokens
+  are next refreshed or the user disconnects.
+
 ## 1. Create the Slack app
 
 1. Copy `docs/slack-app-manifest.yaml` and replace `ariel.example.com` with the
@@ -123,7 +166,7 @@ connection to any other workspace.
 5. Find the workspace ID (starts with `T`) → `ARIEL_SLACK_TEAM_ID`. It is shown
    in the workspace URL of the Slack web client (`https://app.slack.com/client/T.../...`).
 6. The event request URL is verified by Slack only when the server is running.
-   Start the server (step 6) and re-verify the URL on **Event Subscriptions** if
+   Start the server (step 7) and re-verify the URL on **Event Subscriptions** if
    Slack reported it as unverified.
 7. Invite the bot to the channels where it should answer (`/invite @ariel`).
 
@@ -152,16 +195,20 @@ gcloud kms keys add-iam-policy-binding slack-user-token \
 `projects/$PROJECT_ID/locations/global/keyRings/ariel/cryptoKeys/slack-user-token`.
 
 The same key encrypts the Google refresh tokens of the Google Workspace
-integration and the Notion tokens of the Notion integration.
+integration, the Notion tokens of the Notion integration, and the user tokens
+of the GitHub integration.
 
 Each ciphertext is bound to its owner through additional authenticated data
 (`ariel:slack-user-token:v1:{TeamID}:{UserID}` for Slack,
 `ariel:google-refresh-token:v1:{TeamID}:{UserID}` for Google,
-`ariel:notion-token:v1:{TeamID}:{UserID}` for Notion), so a ciphertext copied
-into another user's document cannot be decrypted. Do not disable or destroy the
-key versions that encrypted stored tokens: those tokens become unreadable, the
-affected users have to sign in again, and they cannot disconnect Google
-Workspace or Notion until the key version is restored.
+`ariel:notion-token:v1:{TeamID}:{UserID}` for Notion,
+`ariel:github-access-token:v1:{TeamID}:{UserID}` and
+`ariel:github-refresh-token:v1:{TeamID}:{UserID}` for GitHub), so a ciphertext
+copied into another user's document cannot be decrypted. Do not disable or
+destroy the key versions that encrypted stored tokens: those tokens become
+unreadable, the affected users have to sign in again, and they cannot
+disconnect Google Workspace, Notion, or GitHub until the key version is
+restored.
 
 ## 3. Prepare Firestore
 
@@ -188,13 +235,16 @@ No composite index is needed. Documents are laid out as follows:
 | `googleWorkspaceAccounts/{GoogleAccountID}` | The only Ariel user a Google account is connected to. Created and deleted together with the credential above |
 | `teams/{TeamID}/users/{UserID}/credentials/notion` | Encrypted Notion access and refresh tokens, the workspace (ID and name), the Notion user (ID and name), and whether the user has to reconnect |
 | `notionAccounts/{NotionUserID}` | The only Ariel user a Notion user is connected to. Written and deleted together with the credential above |
+| `teams/{TeamID}/users/{UserID}/credentials/github` | Encrypted GitHub access and refresh tokens, their expiry, the connected GitHub account (ID and login), and the lease that lets one instance refresh at a time |
+| `githubAccounts/{GitHubUserID}` | The only Ariel user a GitHub account is connected to. Created and deleted together with the credential above |
 | `sessions/{SessionID}` | Web session (hash of the session secret, owner, expiry) |
 | `slackEvents/{EventID}` | Record of a processed Slack event, used to drop redelivered events (kept 24 hours) |
 
 Everything that belongs to a user is stored under that user's document path.
-`googleWorkspaceAccounts` and `notionAccounts` are the exceptions: they are
-looked up by the Google account or the Notion user to keep one account from
-being connected to two users, and they hold only the owner's Slack IDs.
+`googleWorkspaceAccounts`, `notionAccounts`, and `githubAccounts` are the
+exceptions: they are looked up by the Google account, the Notion user, or the
+GitHub account to keep one account from being connected to two users, and they
+hold only the owner's Slack IDs.
 
 ## 4. Set up the Google Workspace integration (optional)
 
@@ -235,7 +285,7 @@ organization.
    under **API controls** → **Settings** → **Internal apps**, or open
    **Manage Third-Party App Access** → **Add app** → **OAuth App Name or
    Client ID**, search for the client ID, select it, and choose **Trusted**.
-6. Start Ariel with both values set (step 6). Users then connect their account
+6. Start Ariel with both values set (step 7). Users then connect their account
    with **Connect Google Workspace** on the settings page.
 
 ## 5. Set up the Notion integration (optional)
@@ -267,10 +317,59 @@ the Notion workspace that Ariel should read.
    page: Ariel rejects the connection as another workspace and logs the error
    `notion authorization is for another workspace` with the authorized
    `workspace_id`. Set that value and restart Ariel.
-8. Start Ariel with the three values set (step 6). Users then connect Notion
+8. Start Ariel with the three values set (step 7). Users then connect Notion
    with **Connect Notion** on the settings page.
 
-## 6. Run the server
+## 6. Set up the GitHub integration (optional)
+
+Skip this step to run Ariel without GitHub; the settings page then shows the
+integration as not available. Create one GitHub App per deployment, owned by
+the organization that uses Ariel. You need to be an owner of the organization,
+or an app manager of it.
+
+1. Create the app. Open the URL below with `ORGANIZATION` replaced by the
+   organization's login and `https://ariel.example.com` by your
+   `ARIEL_BASE_URL` (in both places). It fills in the settings and the
+   permissions in the table below. The app name must be unique on GitHub;
+   change `name` if it is taken.
+
+   ```text
+   https://github.com/organizations/ORGANIZATION/settings/apps/new?name=Ariel-ORGANIZATION&url=https://ariel.example.com&callback_urls[]=https://ariel.example.com/api/v1/integrations/github/callback&request_oauth_on_install=false&public=false&webhook_active=false&actions=read&artifact_metadata=read&attestations=read&checks=read&code_quality=read&contents=read&deployments=read&discussions=read&environments=read&issues=read&merge_queues=read&metadata=read&packages=read&pages=read&pull_requests=read&repository_custom_properties=read&repository_projects=read&statuses=read&members=read&organization_projects=read&organization_packages=read&organization_events=read&custom_properties_for_organizations=read
+   ```
+
+   Check the page before clicking **Create GitHub App**:
+   - **Callback URL** is `https://ariel.example.com/api/v1/integrations/github/callback`.
+   - **Expire user authorization tokens** is checked (the default). Ariel
+     refreshes the tokens itself.
+   - **Request user authorization (OAuth) during installation** and **Enable
+     Device Flow** are not checked.
+   - **Webhook** → **Active** is not checked.
+   - **Where can this GitHub App be installed?** is **Only on this account**.
+2. Check the permissions. Every permission Ariel needs is **Read-only**; the
+   others stay **No access**.
+
+   | Group | Read-only | No access, and why |
+   | --- | --- | --- |
+   | Repository | Actions, Artifact metadata, Attestations, Checks, Code quality, Commit statuses, Contents, Custom properties, Deployments, Discussions, Environments, Issues, Merge queues, Metadata, Packages, Pages, Projects, Pull requests | Secrets and Dependabot secrets (secret values and names); Secret scanning alerts, Code scanning alerts, and Dependabot alerts (security findings); Administration, Webhooks, and Codespaces (access control and infrastructure); Single file (covered by Contents); Workflows (write only) |
+   | Organization | Members, Projects, Packages, Events, Custom properties for organizations | Secrets; Administration, Webhooks, Self-hosted runners, Personal access tokens and their requests, Blocking users, Custom repository roles, Custom organization roles, Custom properties management, Copilot settings, Announcement banners, and Plan (access control, infrastructure, and organization settings) |
+   | Account | none | All: they cover the user's personal settings, and Ariel reads the connected account with `GET /user`, which needs none |
+
+   To give Ariel access to more, change the app's permissions later; Ariel
+   needs no change, and users approve the new permissions the next time they
+   connect.
+3. Generate the client secret. On the app's **General** page, copy the
+   **Client ID** (it starts with `Iv`) → `ARIEL_GITHUB_CLIENT_ID`, click
+   **Generate a new client secret**, and copy it → `ARIEL_GITHUB_CLIENT_SECRET`
+   (GitHub shows it only once). Ariel does not use a private key; do not
+   generate one.
+4. Install the app on the organization. On **Install App**, click **Install**
+   next to the organization and choose **All repositories**. With **Only
+   select repositories**, Ariel cannot read the other repositories even for
+   users who can.
+5. Start Ariel with both values set (step 7). Users then connect their account
+   with **Connect GitHub** on the settings page.
+
+## 7. Run the server
 
 ```sh
 ariel serve
@@ -291,13 +390,15 @@ ariel serve
 | `--slack-signing-secret` | `ARIEL_SLACK_SIGNING_SECRET` | | yes (with `--no-auth`: together with the bot token, or neither) | Signing secret, used to verify Events API requests |
 | `--slack-bot-token` | `ARIEL_SLACK_BOT_TOKEN` | | yes (with `--no-auth`: together with the signing secret, or neither) | Bot user OAuth token (`xoxb-`) |
 | `--slack-team-id` | `ARIEL_SLACK_TEAM_ID` | | yes | The only workspace Ariel accepts sign-ins and events from |
-| `--kms-key-name` | `ARIEL_KMS_KEY_NAME` | | yes (not with `--no-auth`) | Cloud KMS key for the Slack, Google, and Notion user tokens |
+| `--kms-key-name` | `ARIEL_KMS_KEY_NAME` | | yes (not with `--no-auth`) | Cloud KMS key for the Slack, Google, Notion, and GitHub user tokens |
 | `--google-client-id` | `ARIEL_GOOGLE_CLIENT_ID` | | with `--google-client-secret` | Client ID of the Google OAuth client (step 4). Setting both Google values enables the Google Workspace integration |
 | `--google-client-secret` | `ARIEL_GOOGLE_CLIENT_SECRET` | | with `--google-client-id` | Client secret of the same OAuth client |
 | `--notion-client-id` | `ARIEL_NOTION_CLIENT_ID` | | with the other two Notion values | OAuth client ID of the Notion public integration (step 5). Setting the three Notion values enables the Notion integration |
 | `--notion-client-secret` | `ARIEL_NOTION_CLIENT_SECRET` | | with the other two Notion values | OAuth client secret of the same integration |
 | `--notion-workspace-id` | `ARIEL_NOTION_WORKSPACE_ID` | | with the other two Notion values | ID (UUID) of the only Notion workspace users can connect |
 | `--notion-api-url` | `ARIEL_NOTION_API_URL` | `https://api.notion.com` | | Development and E2E only. Origin of the Notion API; any other value is accepted only with `--no-auth` |
+| `--github-client-id` | `ARIEL_GITHUB_CLIENT_ID` | | with `--github-client-secret` | Client ID of the GitHub App (step 6, starts with `Iv`). Setting both GitHub values enables the GitHub integration |
+| `--github-client-secret` | `ARIEL_GITHUB_CLIENT_SECRET` | | with `--github-client-id` | Client secret of the same GitHub App |
 | `--no-auth` | `ARIEL_NO_AUTH` | | | Development and E2E only. A Slack user ID (`U...`) of `--slack-team-id`: every web sign-in becomes this user without asking Slack, and no Slack user token is stored. Accepted only with `--repository-backend memory` |
 
 With `--no-auth`, the Slack event endpoint (`/hooks/slack/event`) exists only
@@ -343,6 +444,10 @@ Google Cloud credentials are read from Application Default Credentials.
   `FAKE_NOTION_CLIENT_ID`, `FAKE_NOTION_CLIENT_SECRET`, and
   `FAKE_NOTION_WORKSPACE_ID` matching the Notion flags) and add
   `--notion-api-url http://127.0.0.1:18082` to a `--no-auth` server.
+- GitHub in local development: with the GitHub flags set, **Connect GitHub**
+  goes to the real GitHub authorization, and the callback URL of the app must
+  match `--base-url`. Without `--kms-key-name` the tokens are encrypted with
+  the temporary key described above.
 - Frontend: `task dev:frontend` starts Vite on port 5173 and forwards `/api` to
   `http://localhost:8080`.
 - Build the frontend before building the binary: `task build:frontend`. The

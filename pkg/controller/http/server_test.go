@@ -194,7 +194,8 @@ func TestServer_SPA(t *testing.T) {
 func TestServer_PathsBeforeV1AreNotFound(t *testing.T) {
 	authUC := newFakeAuthUseCase()
 	srv, err := httpctrl.New(authUC, httpctrl.Config{BaseURL: "https://ariel.example.com", Static: testStatic},
-		httpctrl.WithGoogleWorkspace(newFakeGoogleWorkspaceUseCase()), httpctrl.WithNotion(newFakeNotionUseCase()))
+		httpctrl.WithGoogleWorkspace(newFakeGoogleWorkspaceUseCase()), httpctrl.WithNotion(newFakeNotionUseCase()),
+		httpctrl.WithGitHub(newFakeGitHubUseCase()))
 	gt.NoError(t, err).Required()
 
 	for _, tc := range []struct{ method, path string }{
@@ -210,6 +211,10 @@ func TestServer_PathsBeforeV1AreNotFound(t *testing.T) {
 		{http.MethodGet, "/api/integrations/notion/connect"},
 		{http.MethodGet, "/api/integrations/notion/callback?code=c&state=s"},
 		{http.MethodPost, "/api/integrations/notion/disconnect"},
+		{http.MethodGet, "/api/integrations/github"},
+		{http.MethodGet, "/api/integrations/github/connect"},
+		{http.MethodGet, "/api/integrations/github/callback?code=c&state=s"},
+		{http.MethodPost, "/api/integrations/github/disconnect"},
 	} {
 		t.Run(tc.method+" "+tc.path, func(t *testing.T) {
 			w := httptest.NewRecorder()

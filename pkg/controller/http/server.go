@@ -45,6 +45,13 @@ type notionUseCase interface {
 	Disconnect(ctx context.Context, key model.UserKey) error
 }
 
+type gitHubUseCase interface {
+	AuthorizeURL(ctx context.Context, key model.UserKey, state, codeVerifier string) (string, error)
+	HandleCallback(ctx context.Context, key model.UserKey, code, codeVerifier string) error
+	Status(ctx context.Context, key model.UserKey) (*usecase.GitHubStatus, error)
+	Disconnect(ctx context.Context, key model.UserKey) error
+}
+
 type Config struct {
 	// BaseURL decides the Secure cookie attribute. A TLS-terminating proxy
 	// hides TLS from the request, so the scheme of the public URL is used.
@@ -59,6 +66,7 @@ type Server struct {
 	slackUC      slackEventUseCase
 	googleUC     googleWorkspaceUseCase
 	notionUC     notionUseCase
+	githubUC     gitHubUseCase
 	secureCookie bool
 }
 
@@ -69,6 +77,7 @@ type options struct {
 	slackSigningSecret string
 	googleUC           googleWorkspaceUseCase
 	notionUC           notionUseCase
+	githubUC           gitHubUseCase
 }
 
 // WithNotion mounts the connect, callback, and disconnect endpoints of the
@@ -77,6 +86,15 @@ type options struct {
 func WithNotion(uc notionUseCase) Option {
 	return func(o *options) {
 		o.notionUC = uc
+	}
+}
+
+// WithGitHub mounts the connect, callback, and disconnect endpoints of the
+// GitHub integration. Without it, those endpoints do not exist and the status
+// endpoint reports the integration as unavailable.
+func WithGitHub(uc gitHubUseCase) Option {
+	return func(o *options) {
+		o.githubUC = uc
 	}
 }
 
@@ -126,6 +144,7 @@ func New(authUC authUseCase, cfg Config, opts ...Option) (*Server, error) {
 		slackUC:      o.slackUC,
 		googleUC:     o.googleUC,
 		notionUC:     o.notionUC,
+		githubUC:     o.githubUC,
 		secureCookie: base.Scheme == "https",
 	}
 
@@ -159,6 +178,15 @@ func New(authUC authUseCase, cfg Config, opts ...Option) (*Server, error) {
 			r.With(requireSessionOrLogin(authUC)).Get("/connect", s.notionConnectHandler)
 			r.With(requireSessionOrLogin(authUC)).Get("/callback", s.notionCallbackHandler)
 			r.With(requireSession(authUC)).Post("/disconnect", s.notionDisconnectHandler)
+		}
+		r.NotFound(apiNotFound)
+	})
+	r.Route(githubStateCookiePath, func(r chi.Router) {
+		r.With(requireSession(authUC)).Get("/", s.githubStatusHandler)
+		if s.githubUC != nil {
+			r.With(requireSessionOrLogin(authUC)).Get("/connect", s.githubConnectHandler)
+			r.With(requireSessionOrLogin(authUC)).Get("/callback", s.githubCallbackHandler)
+			r.With(requireSession(authUC)).Post("/disconnect", s.githubDisconnectHandler)
 		}
 		r.NotFound(apiNotFound)
 	})

@@ -61,4 +61,24 @@ var (
 	// ErrNotionInvalidRequest means a read request was rejected before it was
 	// sent to Notion (malformed ID, page size out of range, invalid JSON).
 	ErrNotionInvalidRequest = errors.New("invalid notion request")
+
+	// ErrGitHubNotConnected means no usable GitHub connection is stored for
+	// the user.
+	ErrGitHubNotConnected = errors.New("github account is not connected")
+
+	// ErrGitHubConnectRejected means GitHub completed the authorization but
+	// the returned token or account cannot be stored.
+	ErrGitHubConnectRejected = errors.New("github connection rejected")
+
+	// ErrGitHubAccountInUse means the GitHub account the user authorized is
+	// already connected to another user.
+	ErrGitHubAccountInUse = errors.New("github account is connected to another user")
+
+	// ErrGitHubAlreadyConnected means the user already has a connected GitHub
+	// account; a new connection is ignored.
+	ErrGitHubAlreadyConnected = errors.New("github is already connected")
+
+	// ErrGitHubRefreshTimeout means another instance kept refreshing the
+	// user's token for longer than the wait limit.
+	ErrGitHubRefreshTimeout = errors.New("timed out waiting for the github token refresh")
 )

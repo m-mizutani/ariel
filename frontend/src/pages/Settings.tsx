@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import {
+  disconnectGitHub,
   disconnectGoogleWorkspace,
   disconnectNotion,
+  fetchGitHubStatus,
   fetchGoogleWorkspaceStatus,
   fetchNotionStatus,
   logout,
+  startGitHubConnect,
   startGoogleWorkspaceConnect,
   startLogin,
   startNotionConnect,
@@ -25,6 +28,7 @@ const connectActions: Partial<Record<IntegrationID, () => void>> = {
   slack: () => startLogin(),
   google_workspace: () => startGoogleWorkspaceConnect(),
   notion: () => startNotionConnect(),
+  github: () => startGitHubConnect(),
 }
 
 // Services that can be disconnected on this page. Slack is the sign-in method,
@@ -32,6 +36,7 @@ const connectActions: Partial<Record<IntegrationID, () => void>> = {
 const disconnectActions: Partial<Record<IntegrationID, () => Promise<void>>> = {
   google_workspace: disconnectGoogleWorkspace,
   notion: disconnectNotion,
+  github: disconnectGitHub,
 }
 
 const statusLabels: Record<IntegrationStatus, { text: string; className: string }> = {
@@ -87,6 +92,20 @@ const resultNotices: Record<string, Record<string, Notice>> = {
     },
     failed: { text: 'Could not connect Notion. Try again.', className: 'error', role: 'alert' },
   },
+  github: {
+    connected: { text: 'GitHub is connected.', className: 'success', role: 'status' },
+    access_denied: {
+      text: 'GitHub was not connected because you cancelled the request on GitHub.',
+      className: 'error',
+      role: 'alert',
+    },
+    account_in_use: {
+      text: 'GitHub was not connected because this GitHub account is already connected to another Ariel user. Connect a different GitHub account.',
+      className: 'error',
+      role: 'alert',
+    },
+    failed: { text: 'Could not connect GitHub. Try again.', className: 'error', role: 'alert' },
+  },
 }
 
 function noticeFor(searchParams: URLSearchParams): Notice | null {
@@ -128,12 +147,13 @@ export default function Settings() {
   const [signOutFailed, setSignOutFailed] = useState(false)
   const [google, loadGoogle] = useServiceStatus(fetchGoogleWorkspaceStatus)
   const [notion, loadNotion] = useServiceStatus(fetchNotionStatus)
+  const [github, loadGitHub] = useServiceStatus(fetchGitHubStatus)
   const [notice] = useState(() => noticeFor(searchParams))
 
   // Services whose status the page fetches from their own API.
   const reloadActions = useMemo<Partial<Record<IntegrationID, () => Promise<void>>>>(
-    () => ({ google_workspace: loadGoogle, notion: loadNotion }),
-    [loadGoogle, loadNotion],
+    () => ({ google_workspace: loadGoogle, notion: loadNotion, github: loadGitHub }),
+    [loadGoogle, loadNotion, loadGitHub],
   )
 
   // Remove the result from the URL once it is shown, so a reload does not
@@ -262,7 +282,7 @@ export default function Settings() {
           </p>
         )}
         <ul className="integration-list">
-          {listIntegrations(me, google, notion).map((integration) => {
+          {listIntegrations(me, google, notion, github).map((integration) => {
             const label = statusLabels[integration.status]
             return (
               <li key={integration.id} className="integration" aria-labelledby={`integration-${integration.id}`}>

@@ -23,6 +23,10 @@ const (
 	// notionAccountsCollection is keyed by the Notion user and names the only
 	// user the Notion account is connected to.
 	notionAccountsCollection = "notionAccounts"
+	githubCredentialDocID    = "github"
+	// githubAccountsCollection is keyed by the GitHub user ID and names the
+	// only user the GitHub account is connected to.
+	githubAccountsCollection = "githubAccounts"
 	sessionsCollection       = "sessions"
 	slackEventsCollection    = "slackEvents"
 )
@@ -33,6 +37,7 @@ type Firestore struct {
 	slackCredential           *slackCredentialRepository
 	googleWorkspaceCredential *googleWorkspaceCredentialRepository
 	notionCredential          *notionCredentialRepository
+	githubCredential          *githubCredentialRepository
 	session                   *sessionRepository
 	slackEvent                *slackEventRepository
 }
@@ -61,6 +66,7 @@ func New(ctx context.Context, projectID, databaseID string) (*Firestore, error) 
 		slackCredential:           &slackCredentialRepository{client: client},
 		googleWorkspaceCredential: &googleWorkspaceCredentialRepository{client: client},
 		notionCredential:          &notionCredentialRepository{client: client},
+		githubCredential:          &githubCredentialRepository{client: client},
 		session:                   &sessionRepository{client: client},
 		slackEvent:                &slackEventRepository{client: client},
 	}, nil
@@ -73,6 +79,9 @@ func (f *Firestore) GoogleWorkspaceCredential() interfaces.GoogleWorkspaceCreden
 }
 func (f *Firestore) NotionCredential() interfaces.NotionCredentialRepository {
 	return f.notionCredential
+}
+func (f *Firestore) GitHubCredential() interfaces.GitHubCredentialRepository {
+	return f.githubCredential
 }
 func (f *Firestore) Session() interfaces.SessionRepository       { return f.session }
 func (f *Firestore) SlackEvent() interfaces.SlackEventRepository { return f.slackEvent }

@@ -1,4 +1,4 @@
-import type { GoogleWorkspaceStatus, Me, NotionStatus } from './api'
+import type { GitHubStatus, GoogleWorkspaceStatus, Me, NotionStatus } from './api'
 
 export type IntegrationID = 'slack' | 'google_workspace' | 'notion' | 'github'
 export type IntegrationStatus =
@@ -25,8 +25,8 @@ export type ServiceState<T> = { kind: 'loading' } | { kind: 'error' } | { kind: 
 
 export type GoogleWorkspaceState = ServiceState<GoogleWorkspaceStatus>
 export type NotionState = ServiceState<NotionStatus>
+export type GitHubState = ServiceState<GitHubStatus>
 
-const comingSoonDescription = 'You can connect this service in a later release.'
 const unavailableDescription = 'Your Ariel administrator has not set up this integration.'
 const slackDescription = 'When you mention @ariel in a Slack channel, Ariel replies in the thread.'
 const slackConnectedNote = 'You sign in to Ariel with Slack, so you cannot disconnect Slack on this page.'
@@ -38,6 +38,10 @@ const notionDescription =
   'No Ariel feature uses this access yet. Ariel cannot create or change anything.'
 const notionReconnectDescription =
   'Ariel can no longer access your Notion pages. Reconnect Notion to give Ariel access again.'
+const githubDescription =
+  'Gives Ariel read-only access to the repositories, issues, pull requests, and other GitHub content your GitHub account can see, ' +
+  'in organizations where the Ariel GitHub App is installed. ' +
+  'No Ariel feature uses this access yet. Ariel cannot create or change anything.'
 
 function googleWorkspace(google: GoogleWorkspaceState): Integration {
   const base = { id: 'google_workspace', name: 'Google Workspace', description: googleDescription } as const
@@ -92,10 +96,33 @@ function notion(state: NotionState): Integration {
   }
 }
 
+function github(state: GitHubState): Integration {
+  const base = { id: 'github', name: 'GitHub', description: githubDescription } as const
+  switch (state.kind) {
+    case 'loading':
+      return { ...base, status: 'checking' }
+    case 'error':
+      return { ...base, status: 'check_failed' }
+    case 'loaded':
+      if (!state.status.available) {
+        return { ...base, description: unavailableDescription, status: 'unavailable' }
+      }
+      if (state.status.connected) {
+        return { ...base, status: 'connected', account: `@${state.status.login}` }
+      }
+      return { ...base, status: 'not_connected' }
+  }
+}
+
 // listIntegrations returns every service shown on the settings page, in display
-// order. Slack's status comes from /api/v1/auth/me; Google Workspace and Notion
-// have their own status APIs under /api/v1/integrations.
-export function listIntegrations(me: Me, google: GoogleWorkspaceState, notionState: NotionState): Integration[] {
+// order. Slack's status comes from /api/v1/auth/me; Google Workspace, Notion,
+// and GitHub have their own status APIs under /api/v1/integrations.
+export function listIntegrations(
+  me: Me,
+  google: GoogleWorkspaceState,
+  notionState: NotionState,
+  githubState: GitHubState,
+): Integration[] {
   return [
     {
       id: 'slack',
@@ -105,6 +132,6 @@ export function listIntegrations(me: Me, google: GoogleWorkspaceState, notionSta
     },
     googleWorkspace(google),
     notion(notionState),
-    { id: 'github', name: 'GitHub', description: comingSoonDescription, status: 'coming_soon' },
+    github(githubState),
   ]
 }

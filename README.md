@@ -17,7 +17,11 @@ Current features:
   read-only access to the pages and databases the user shares with it, in one
   Notion workspace, and stores the tokens encrypted with Cloud KMS. Searching
   and reading those pages and databases is available to server-side code.
+- Optionally, connect and disconnect a GitHub account on the settings page.
+  Ariel obtains a read-only user token of a GitHub App that you create for your
+  deployment, stores it encrypted with Cloud KMS, and refreshes it before it
+  expires.
 
-See [docs/setup.md](docs/setup.md) for the Slack app, Google Cloud and Notion
-setup, and configuration. The Slack app manifest is
+See [docs/setup.md](docs/setup.md) for the Slack app, Google Cloud, Notion, and
+GitHub App setup, and configuration. The Slack app manifest is
 [docs/slack-app-manifest.yaml](docs/slack-app-manifest.yaml).
