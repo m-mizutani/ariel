@@ -1,10 +1,8 @@
 package http
 
 import (
-	"crypto/subtle"
 	"errors"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/m-mizutani/goerr/v2"
@@ -16,7 +14,7 @@ import (
 
 const (
 	googleStateCookieName = "ariel_google_oauth_state"
-	googleStateCookiePath = "/api/integrations/google-workspace"
+	googleStateCookiePath = apiV1Path + "/integrations/google-workspace"
 
 	// The settings page reads googleResultParam to tell the user how the
 	// connection ended. Only these fixed values are ever sent.
@@ -79,9 +77,6 @@ func (s *Server) googleStatusHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// googleConnectHandler binds the OAuth state to the session that started the
-// connection, so a callback that arrives after another user signed in to the
-// same browser is rejected instead of storing the first user's account.
 func (s *Server) googleConnectHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	session, ok := sessionFromRequest(w, r)
@@ -108,7 +103,7 @@ func (s *Server) googleConnectHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.setCookie(w, googleStateCookieName, state+"."+string(session.ID), googleStateCookiePath, stateCookieMaxAge, time.Time{})
+	s.setCookie(w, googleStateCookieName, oauthStateCookieValue(state, session), googleStateCookiePath, stateCookieMaxAge, time.Time{})
 	http.Redirect(w, r, authorizeURL, http.StatusFound)
 }
 
@@ -138,7 +133,7 @@ func (s *Server) googleCallbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := verifyGoogleState(r, q.Get("state"), session); err != nil {
+	if err := verifyOAuthState(r, googleStateCookieName, q.Get("state"), session); err != nil {
 		errutil.Handle(ctx, goerr.Wrap(err, "google oauth state check failed", vals...), "google workspace connection failed")
 		redirectGoogleResult(w, r, googleResultFailed)
 		return
@@ -167,26 +162,6 @@ func (s *Server) googleCallbackHandler(w http.ResponseWriter, r *http.Request) {
 		errutil.Handle(ctx, err, "google workspace connection failed")
 		redirectGoogleResult(w, r, googleResultFailed)
 	}
-}
-
-// verifyGoogleState checks the state against the cookie set by
-// googleConnectHandler and that the same session started the connection.
-func verifyGoogleState(r *http.Request, state string, session *auth.Session) error {
-	cookie, err := r.Cookie(googleStateCookieName)
-	if err != nil {
-		return goerr.Wrap(err, "google oauth state cookie is missing")
-	}
-	cookieState, cookieSessionID, found := strings.Cut(cookie.Value, ".")
-	if !found {
-		return goerr.New("google oauth state cookie is malformed")
-	}
-	if state == "" || subtle.ConstantTimeCompare([]byte(state), []byte(cookieState)) != 1 {
-		return goerr.New("google oauth state does not match")
-	}
-	if subtle.ConstantTimeCompare([]byte(cookieSessionID), []byte(session.ID)) != 1 {
-		return goerr.New("google connection was started by another session")
-	}
-	return nil
 }
 
 func (s *Server) googleDisconnectHandler(w http.ResponseWriter, r *http.Request) {

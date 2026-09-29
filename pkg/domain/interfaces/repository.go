@@ -14,6 +14,7 @@ type Repository interface {
 	User() UserRepository
 	SlackCredential() SlackCredentialRepository
 	GoogleWorkspaceCredential() GoogleWorkspaceCredentialRepository
+	NotionCredential() NotionCredentialRepository
 	Session() SessionRepository
 	SlackEvent() SlackEventRepository
 	Close() error
@@ -54,6 +55,33 @@ type GoogleWorkspaceCredentialRepository interface {
 	// reports whether a credential was deleted; a missing or replaced
 	// credential is not an error.
 	DeleteIfUnchanged(ctx context.Context, key model.UserKey, expected *model.GoogleWorkspaceCredential) (bool, error)
+}
+
+// NotionCredentialRepository keeps at most one credential per user and
+// connects each Notion account (by cred.NotionUserID) to at most one user. The
+// owner of a Notion account is recorded outside the user's document; it is
+// written and deleted together with the credential and never returned.
+type NotionCredentialRepository interface {
+	// Create stores the credential and makes key the owner of its Notion
+	// account, atomically. It fails with ErrAlreadyExists when key already has
+	// a credential, and with ErrNotionAccountInUse when another user owns the
+	// Notion account.
+	Create(ctx context.Context, key model.UserKey, cred *model.NotionCredential) error
+	Get(ctx context.Context, key model.UserKey) (*model.NotionCredential, error)
+	// AccountInUse reports whether a user other than key owns the Notion
+	// account identified by notionUserID.
+	AccountInUse(ctx context.Context, key model.UserKey, notionUserID model.NotionUserID) (bool, error)
+	// UpdateIfUnchanged replaces the credential with next only while it still
+	// holds the token ciphertext of expected, moving the ownership when next
+	// is for another Notion account. It reports whether it replaced the
+	// credential; a missing or replaced credential is not an error. It fails
+	// with ErrNotionAccountInUse when another user owns next's Notion account.
+	UpdateIfUnchanged(ctx context.Context, key model.UserKey, expected, next *model.NotionCredential) (bool, error)
+	// DeleteIfUnchanged removes the credential, and the ownership of its
+	// Notion account, only while the credential still holds the ciphertext of
+	// expected. It reports whether a credential was deleted; a missing or
+	// replaced credential is not an error.
+	DeleteIfUnchanged(ctx context.Context, key model.UserKey, expected *model.NotionCredential) (bool, error)
 }
 
 type SessionRepository interface {

@@ -1,8 +1,8 @@
 # Setup
 
 This document describes how to run Ariel: the Slack app, Google Cloud (Cloud KMS
-and Firestore), the optional Google Workspace integration, the server
-configuration, and local development.
+and Firestore), the optional Google Workspace and Notion integrations, the
+server configuration, and local development.
 
 ## How Ariel uses Slack
 
@@ -67,12 +67,51 @@ its accounts.
   still accepted, so it keeps showing **Connected** in these cases; disconnect
   and connect again to obtain a new token.
 
+## How Ariel uses Notion
+
+The Notion integration is optional and is enabled only when the server has a
+Notion public integration (step 5). It is meant for one Notion workspace: the
+integration can be installed only in that workspace, and Ariel also rejects a
+connection to any other workspace.
+
+- Each user connects Notion on the settings page. On Notion's authorization
+  page, the user picks the pages and databases to share with Ariel. Ariel can
+  read only those pages and databases and the pages under them, not the whole
+  workspace. The user can share more pages, or stop sharing them, later from
+  the **Connections** menu of a Notion page.
+- The integration has the **Read content** capability only. Ariel can search
+  the shared pages and databases, read pages and their content, and read and
+  query databases. It cannot create, change, or comment on anything. No Ariel
+  feature uses this access yet.
+- Ariel stores the Notion user who authorized, as returned by Notion; it does
+  not compare it with the Slack account.
+- One Notion user can be connected to only one Ariel user. Whether Notion
+  treats two authorizations by the same Notion user as one connection is not
+  documented; if it does, one Ariel user's disconnection would end the other's
+  access. A user who authorizes a Notion user that is already connected to
+  someone else is told so, and Ariel stores nothing.
+- A user who is already connected cannot connect again: the connection is
+  ignored and the settings page stays as it is. Disconnect first to switch
+  accounts.
+- Notion issues an access token and a refresh token. Ariel stores both,
+  encrypted with Cloud KMS as one ciphertext, together with the workspace and
+  the Notion user's name. When Notion rejects the access token, Ariel obtains a
+  new pair with the refresh token and stores it. When Notion rejects the
+  refresh token too, for example because the user removed Ariel from their
+  Notion connections, the settings page shows **Reconnect required**;
+  **Reconnect Notion** authorizes again and replaces the stored tokens.
+- **Disconnect Notion** on the settings page revokes the access token at Notion
+  and deletes the stored tokens. Signing out of Ariel does not disconnect
+  Notion.
+
 ## 1. Create the Slack app
 
 1. Copy `docs/slack-app-manifest.yaml` and replace `ariel.example.com` with the
    public URL of your server (the value of `ARIEL_BASE_URL`). Both the redirect
-   URL (`/api/auth/callback`) and the event request URL (`/hooks/slack/event`)
-   must use that host.
+   URL (`/api/v1/auth/callback`) and the event request URL (`/hooks/slack/event`)
+   must use that host. A Slack app created before the API moved under
+   `/api/v1` has `/api/auth/callback` as its redirect URL; change it on **OAuth &
+   Permissions** → **Redirect URLs**, or sign-in fails.
 2. Open https://api.slack.com/apps, choose **Create New App** → **From an app
    manifest**, select your workspace, and paste the manifest.
 3. On **Install App**, install the app to the workspace. Copy the **Bot User
@@ -84,7 +123,7 @@ its accounts.
 5. Find the workspace ID (starts with `T`) → `ARIEL_SLACK_TEAM_ID`. It is shown
    in the workspace URL of the Slack web client (`https://app.slack.com/client/T.../...`).
 6. The event request URL is verified by Slack only when the server is running.
-   Start the server (step 5) and re-verify the URL on **Event Subscriptions** if
+   Start the server (step 6) and re-verify the URL on **Event Subscriptions** if
    Slack reported it as unverified.
 7. Invite the bot to the channels where it should answer (`/invite @ariel`).
 
@@ -113,15 +152,16 @@ gcloud kms keys add-iam-policy-binding slack-user-token \
 `projects/$PROJECT_ID/locations/global/keyRings/ariel/cryptoKeys/slack-user-token`.
 
 The same key encrypts the Google refresh tokens of the Google Workspace
-integration.
+integration and the Notion tokens of the Notion integration.
 
 Each ciphertext is bound to its owner through additional authenticated data
 (`ariel:slack-user-token:v1:{TeamID}:{UserID}` for Slack,
-`ariel:google-refresh-token:v1:{TeamID}:{UserID}` for Google), so a ciphertext
-copied into another user's document cannot be decrypted. Do not disable or
-destroy the key versions that encrypted stored tokens: those tokens become
-unreadable, the affected users have to sign in again, and they cannot
-disconnect Google Workspace until the key version is restored.
+`ariel:google-refresh-token:v1:{TeamID}:{UserID}` for Google,
+`ariel:notion-token:v1:{TeamID}:{UserID}` for Notion), so a ciphertext copied
+into another user's document cannot be decrypted. Do not disable or destroy the
+key versions that encrypted stored tokens: those tokens become unreadable, the
+affected users have to sign in again, and they cannot disconnect Google
+Workspace or Notion until the key version is restored.
 
 ## 3. Prepare Firestore
 
@@ -146,13 +186,15 @@ No composite index is needed. Documents are laid out as follows:
 | `teams/{TeamID}/users/{UserID}/credentials/slack` | Encrypted Slack user token and granted scopes |
 | `teams/{TeamID}/users/{UserID}/credentials/google_workspace` | Encrypted Google refresh token, granted scopes, and the connected Google account (ID and address) |
 | `googleWorkspaceAccounts/{GoogleAccountID}` | The only Ariel user a Google account is connected to. Created and deleted together with the credential above |
+| `teams/{TeamID}/users/{UserID}/credentials/notion` | Encrypted Notion access and refresh tokens, the workspace (ID and name), the Notion user (ID and name), and whether the user has to reconnect |
+| `notionAccounts/{NotionUserID}` | The only Ariel user a Notion user is connected to. Written and deleted together with the credential above |
 | `sessions/{SessionID}` | Web session (hash of the session secret, owner, expiry) |
 | `slackEvents/{EventID}` | Record of a processed Slack event, used to drop redelivered events (kept 24 hours) |
 
 Everything that belongs to a user is stored under that user's document path.
-`googleWorkspaceAccounts` is the exception: it is looked up by the Google
-account to keep one Google account from being connected to two users, and it
-holds only the owner's Slack IDs.
+`googleWorkspaceAccounts` and `notionAccounts` are the exceptions: they are
+looked up by the Google account or the Notion user to keep one account from
+being connected to two users, and they hold only the owner's Slack IDs.
 
 ## 4. Set up the Google Workspace integration (optional)
 
@@ -177,22 +219,58 @@ organization.
 4. Create the OAuth client. Open **Google Auth platform** → **Clients** →
    **Create Client**, choose the application type **Web application**, and
    under **Authorized redirect URIs** add
-   `https://ariel.example.com/api/integrations/google-workspace/callback`,
+   `https://ariel.example.com/api/v1/integrations/google-workspace/callback`,
    with your `ARIEL_BASE_URL` in place of `https://ariel.example.com`. Click
    **Create** and copy:
    - **Client ID** → `ARIEL_GOOGLE_CLIENT_ID`
    - **Client secret** → `ARIEL_GOOGLE_CLIENT_SECRET` (store it right away; the
      console may not show it again)
+
+   An OAuth client created before the API moved under `/api/v1` has
+   `.../api/integrations/google-workspace/callback` as its redirect URI;
+   replace it with the URI above, or Google rejects the connection.
 5. Allow the app in the Google Admin console. If Gmail, Drive, or Calendar is
    set to **Restricted** under **Security** → **API controls**, Google refuses
    the grant until the app is trusted. Either select **Trust internal apps**
    under **API controls** → **Settings** → **Internal apps**, or open
    **Manage Third-Party App Access** → **Add app** → **OAuth App Name or
    Client ID**, search for the client ID, select it, and choose **Trusted**.
-6. Start Ariel with both values set (step 5). Users then connect their account
+6. Start Ariel with both values set (step 6). Users then connect their account
    with **Connect Google Workspace** on the settings page.
 
-## 5. Run the server
+## 5. Set up the Notion integration (optional)
+
+Skip this step to run Ariel without Notion; the settings page then shows the
+integration as not available. You need to be able to create integrations in
+the Notion workspace that Ariel should read.
+
+1. Create a public integration. Open the Notion developer portal
+   (https://developers.notion.com/), choose **Build** → **Public connections**
+   in the sidebar, and click **Create new connection**.
+2. Enter the name (for example `Ariel`) and choose the development workspace.
+3. Set the installation scope to **Selected workspaces only** and select your
+   organization's workspace. This setting cannot be changed after the
+   integration is created.
+4. Under the capabilities, enable **Read content** only and leave every other
+   capability off. Ariel never writes to Notion.
+5. Under the OAuth configuration, add the redirect URI
+   `https://ariel.example.com/api/v1/integrations/notion/callback`, with your
+   `ARIEL_BASE_URL` in place of `https://ariel.example.com`.
+6. Create the integration, open its **Configuration** tab, and copy:
+   - **OAuth client ID** → `ARIEL_NOTION_CLIENT_ID`
+   - **OAuth client secret** → `ARIEL_NOTION_CLIENT_SECRET`
+7. Set the ID of the workspace (a UUID such as
+   `0f4a2b1c-3d4e-4f50-8a6b-7c8d9e0f1a2b`) → `ARIEL_NOTION_WORKSPACE_ID`.
+   Notion's documentation does not say where the workspace ID is shown. If you
+   do not know it, start Ariel with any UUID, such as
+   `00000000-0000-0000-0000-000000000000`, and connect Notion on the settings
+   page: Ariel rejects the connection as another workspace and logs the error
+   `notion authorization is for another workspace` with the authorized
+   `workspace_id`. Set that value and restart Ariel.
+8. Start Ariel with the three values set (step 6). Users then connect Notion
+   with **Connect Notion** on the settings page.
+
+## 6. Run the server
 
 ```sh
 ariel serve
@@ -213,13 +291,23 @@ ariel serve
 | `--slack-signing-secret` | `ARIEL_SLACK_SIGNING_SECRET` | | yes (with `--no-auth`: together with the bot token, or neither) | Signing secret, used to verify Events API requests |
 | `--slack-bot-token` | `ARIEL_SLACK_BOT_TOKEN` | | yes (with `--no-auth`: together with the signing secret, or neither) | Bot user OAuth token (`xoxb-`) |
 | `--slack-team-id` | `ARIEL_SLACK_TEAM_ID` | | yes | The only workspace Ariel accepts sign-ins and events from |
-| `--kms-key-name` | `ARIEL_KMS_KEY_NAME` | | yes (not with `--no-auth`) | Cloud KMS key for the Slack and Google user tokens |
+| `--kms-key-name` | `ARIEL_KMS_KEY_NAME` | | yes (not with `--no-auth`) | Cloud KMS key for the Slack, Google, and Notion user tokens |
 | `--google-client-id` | `ARIEL_GOOGLE_CLIENT_ID` | | with `--google-client-secret` | Client ID of the Google OAuth client (step 4). Setting both Google values enables the Google Workspace integration |
 | `--google-client-secret` | `ARIEL_GOOGLE_CLIENT_SECRET` | | with `--google-client-id` | Client secret of the same OAuth client |
-| `--no-auth` | `ARIEL_NO_AUTH` | | | Development and E2E only. A Slack user ID (`U...`) of `--slack-team-id`: every web sign-in becomes this user without asking Slack, and no user token is stored. Accepted only with `--repository-backend memory` |
+| `--notion-client-id` | `ARIEL_NOTION_CLIENT_ID` | | with the other two Notion values | OAuth client ID of the Notion public integration (step 5). Setting the three Notion values enables the Notion integration |
+| `--notion-client-secret` | `ARIEL_NOTION_CLIENT_SECRET` | | with the other two Notion values | OAuth client secret of the same integration |
+| `--notion-workspace-id` | `ARIEL_NOTION_WORKSPACE_ID` | | with the other two Notion values | ID (UUID) of the only Notion workspace users can connect |
+| `--notion-api-url` | `ARIEL_NOTION_API_URL` | `https://api.notion.com` | | Development and E2E only. Origin of the Notion API; any other value is accepted only with `--no-auth` |
+| `--no-auth` | `ARIEL_NO_AUTH` | | | Development and E2E only. A Slack user ID (`U...`) of `--slack-team-id`: every web sign-in becomes this user without asking Slack, and no Slack user token is stored. Accepted only with `--repository-backend memory` |
 
 With `--no-auth`, the Slack event endpoint (`/hooks/slack/event`) exists only
-when both the bot token and the signing secret are set.
+when both the bot token and the signing secret are set. Without
+`--kms-key-name`, tokens are encrypted with a key that the server generates at
+startup and loses when it stops; the in-memory repository loses the tokens at
+the same time.
+
+The API of the server is under `/api/v1`. Paths without the version, such as
+`/api/auth/login`, return `404`.
 
 Google Cloud credentials are read from Application Default Credentials.
 
@@ -245,9 +333,16 @@ Google Cloud credentials are read from Application Default Credentials.
   "Sign in with Slack" signs you in as `U0123ABCD` directly.
 - Google Workspace in local development: `--no-auth` does not skip Google. With
   the Google flags set, **Connect Google Workspace** goes to the real Google
-  authorization, and storing the token needs `--kms-key-name`; without it the
-  connection fails after Google returns. The redirect URI registered in the
-  OAuth client must match `--base-url`.
+  authorization. Without `--kms-key-name` the token is encrypted with the
+  temporary key described above. The redirect URI registered in the OAuth
+  client must match `--base-url`.
+- Notion in local development: with the Notion flags set, **Connect Notion**
+  goes to the real Notion authorization, and the redirect URI of the
+  integration must match `--base-url`. Alternatively, run the fake Notion
+  server of the E2E tests (`node e2e/fake-notion.mjs` in `frontend/`, with
+  `FAKE_NOTION_CLIENT_ID`, `FAKE_NOTION_CLIENT_SECRET`, and
+  `FAKE_NOTION_WORKSPACE_ID` matching the Notion flags) and add
+  `--notion-api-url http://127.0.0.1:18082` to a `--no-auth` server.
 - Frontend: `task dev:frontend` starts Vite on port 5173 and forwards `/api` to
   `http://localhost:8080`.
 - Build the frontend before building the binary: `task build:frontend`. The
@@ -265,7 +360,8 @@ Google Cloud credentials are read from Application Default Credentials.
 - Frontend: `pnpm test`, `pnpm lint`, and `pnpm build` in `frontend/`.
 - E2E: `task e2e` builds the binary and runs the Playwright tests in
   `frontend/e2e/tests/` against it, started with `--no-auth` and the in-memory
-  repository. Install the browser once with
+  repository. Notion is served by `frontend/e2e/fake-notion.mjs`, which
+  Playwright starts together with the server. Install the browser once with
   `pnpm exec playwright install chromium` in `frontend/`.
 - Screenshots for pull requests: `task screenshots` captures every screen state
   into `frontend/screenshots/`. Attach them to the PR description with

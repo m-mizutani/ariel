@@ -38,6 +38,13 @@ type googleWorkspaceUseCase interface {
 	Disconnect(ctx context.Context, key model.UserKey) error
 }
 
+type notionUseCase interface {
+	AuthorizeURL(ctx context.Context, key model.UserKey, state string) (string, error)
+	HandleCallback(ctx context.Context, key model.UserKey, code string) error
+	Status(ctx context.Context, key model.UserKey) (*usecase.NotionStatus, error)
+	Disconnect(ctx context.Context, key model.UserKey) error
+}
+
 type Config struct {
 	// BaseURL decides the Secure cookie attribute. A TLS-terminating proxy
 	// hides TLS from the request, so the scheme of the public URL is used.
@@ -51,6 +58,7 @@ type Server struct {
 	authUC       authUseCase
 	slackUC      slackEventUseCase
 	googleUC     googleWorkspaceUseCase
+	notionUC     notionUseCase
 	secureCookie bool
 }
 
@@ -60,6 +68,16 @@ type options struct {
 	slackUC            slackEventUseCase
 	slackSigningSecret string
 	googleUC           googleWorkspaceUseCase
+	notionUC           notionUseCase
+}
+
+// WithNotion mounts the connect, callback, and disconnect endpoints of the
+// Notion integration. Without it, those endpoints do not exist and the status
+// endpoint reports the integration as unavailable.
+func WithNotion(uc notionUseCase) Option {
+	return func(o *options) {
+		o.notionUC = uc
+	}
 }
 
 // WithGoogleWorkspace mounts the connect, callback, and disconnect endpoints
@@ -107,6 +125,7 @@ func New(authUC authUseCase, cfg Config, opts ...Option) (*Server, error) {
 		authUC:       authUC,
 		slackUC:      o.slackUC,
 		googleUC:     o.googleUC,
+		notionUC:     o.notionUC,
 		secureCookie: base.Scheme == "https",
 	}
 
@@ -118,7 +137,7 @@ func New(authUC authUseCase, cfg Config, opts ...Option) (*Server, error) {
 	apiNotFound := func(w http.ResponseWriter, r *http.Request) {
 		writeError(r.Context(), w, http.StatusNotFound, errCodeNotFound)
 	}
-	r.Route("/api/auth", func(r chi.Router) {
+	r.Route(authPath, func(r chi.Router) {
 		r.Get("/login", s.authLoginHandler)
 		r.Get("/callback", s.authCallbackHandler)
 		r.Post("/logout", s.authLogoutHandler)
@@ -131,6 +150,15 @@ func New(authUC authUseCase, cfg Config, opts ...Option) (*Server, error) {
 			r.With(requireSessionOrLogin(authUC)).Get("/connect", s.googleConnectHandler)
 			r.With(requireSessionOrLogin(authUC)).Get("/callback", s.googleCallbackHandler)
 			r.With(requireSession(authUC)).Post("/disconnect", s.googleDisconnectHandler)
+		}
+		r.NotFound(apiNotFound)
+	})
+	r.Route(notionStateCookiePath, func(r chi.Router) {
+		r.With(requireSession(authUC)).Get("/", s.notionStatusHandler)
+		if s.notionUC != nil {
+			r.With(requireSessionOrLogin(authUC)).Get("/connect", s.notionConnectHandler)
+			r.With(requireSessionOrLogin(authUC)).Get("/callback", s.notionCallbackHandler)
+			r.With(requireSession(authUC)).Post("/disconnect", s.notionDisconnectHandler)
 		}
 		r.NotFound(apiNotFound)
 	})

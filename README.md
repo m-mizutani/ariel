@@ -13,7 +13,11 @@ Current features:
   page. Ariel obtains read-only access to Calendar, Drive, and Gmail through an
   OAuth client of your own organization and stores the refresh token encrypted
   with Cloud KMS.
+- Optionally, connect and disconnect Notion on the settings page. Ariel obtains
+  read-only access to the pages and databases the user shares with it, in one
+  Notion workspace, and stores the tokens encrypted with Cloud KMS. Searching
+  and reading those pages and databases is available to server-side code.
 
-See [docs/setup.md](docs/setup.md) for the Slack app, Google Cloud setup, and
-configuration. The Slack app manifest is
+See [docs/setup.md](docs/setup.md) for the Slack app, Google Cloud and Notion
+setup, and configuration. The Slack app manifest is
 [docs/slack-app-manifest.yaml](docs/slack-app-manifest.yaml).

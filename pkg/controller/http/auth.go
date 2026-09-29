@@ -14,8 +14,13 @@ import (
 )
 
 const (
+	// apiV1Path is the prefix of every API route. Paths outside it are not
+	// API routes: pages of the SPA, and /hooks/slack/event called by Slack.
+	apiV1Path = "/api/v1"
+	authPath  = apiV1Path + "/auth"
+
 	stateCookieName         = "ariel_oauth_state"
-	stateCookiePath         = "/api/auth"
+	stateCookiePath         = authPath
 	stateCookieMaxAge       = 600
 	sessionIDCookieName     = "ariel_session_id"
 	sessionSecretCookieName = "ariel_session_secret"

@@ -12,7 +12,7 @@ async function signIn(page: Page) {
   await expect(page.getByText(`Signed in as ${e2eUserID}`)).toBeVisible()
 }
 
-test('the settings page lists Slack, Google Workspace, and the services coming later', async ({ page }) => {
+test('the settings page lists Slack, Google Workspace, Notion, and the service coming later', async ({ page }) => {
   await signIn(page)
 
   await expect(page.getByRole('heading', { level: 3 })).toHaveText(['Slack', 'Google Workspace', 'Notion', 'GitHub'])
@@ -21,14 +21,14 @@ test('the settings page lists Slack, Google Workspace, and the services coming l
   await expect(slack.getByText('Not connected')).toBeVisible()
   await expect(slack.getByRole('button', { name: 'Connect Slack' })).toBeEnabled()
 
-  // google-workspace.spec.ts covers the Google Workspace row.
-  await expect(page.getByRole('listitem', { name: 'Google Workspace' }).getByText('Coming soon')).toHaveCount(0)
-
-  for (const name of ['Notion', 'GitHub']) {
-    const service = page.getByRole('listitem', { name })
-    await expect(service.getByText('Coming soon')).toBeVisible()
-    await expect(service.getByRole('button', { name: `Connect ${name}` })).toBeDisabled()
+  // google-workspace.spec.ts and notion.spec.ts cover those rows.
+  for (const name of ['Google Workspace', 'Notion']) {
+    await expect(page.getByRole('listitem', { name }).getByText('Coming soon')).toHaveCount(0)
   }
+
+  const github = page.getByRole('listitem', { name: 'GitHub' })
+  await expect(github.getByText('Coming soon')).toBeVisible()
+  await expect(github.getByRole('button', { name: 'Connect GitHub' })).toBeDisabled()
 })
 
 test('the root and unknown paths lead a signed-in user to the settings page', async ({ page }) => {
@@ -52,7 +52,7 @@ test('a signed-out visitor opening the settings page is sent to the login page',
   await expect(page).toHaveURL('/login')
   await expect(page.getByText(/Signed in as/)).toHaveCount(0)
 
-  const me = await page.request.get('/api/auth/me')
+  const me = await page.request.get('/api/v1/auth/me')
   expect(me.status()).toBe(401)
 })
 
@@ -63,6 +63,6 @@ test('after signing out, the settings page is no longer available', async ({ pag
 
   await page.goto('/settings')
   await expect(page).toHaveURL('/login')
-  const me = await page.request.get('/api/auth/me')
+  const me = await page.request.get('/api/v1/auth/me')
   expect(me.status()).toBe(401)
 })

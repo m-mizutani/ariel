@@ -1,19 +1,22 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import {
   disconnectGoogleWorkspace,
+  disconnectNotion,
   fetchGoogleWorkspaceStatus,
+  fetchNotionStatus,
   logout,
   startGoogleWorkspaceConnect,
   startLogin,
+  startNotionConnect,
 } from '../api'
 import { useAuth } from '../contexts/auth-context'
 import {
   listIntegrations,
-  type GoogleWorkspaceState,
   type Integration,
   type IntegrationID,
   type IntegrationStatus,
+  type ServiceState,
 } from '../integrations'
 
 // Services whose connection can be started now. Every other service shows a
@@ -21,12 +24,14 @@ import {
 const connectActions: Partial<Record<IntegrationID, () => void>> = {
   slack: () => startLogin(),
   google_workspace: () => startGoogleWorkspaceConnect(),
+  notion: () => startNotionConnect(),
 }
 
 // Services that can be disconnected on this page. Slack is the sign-in method,
 // so it is not here.
 const disconnectActions: Partial<Record<IntegrationID, () => Promise<void>>> = {
   google_workspace: disconnectGoogleWorkspace,
+  notion: disconnectNotion,
 }
 
 const statusLabels: Record<IntegrationStatus, { text: string; className: string }> = {
@@ -36,39 +41,80 @@ const statusLabels: Record<IntegrationStatus, { text: string; className: string 
   unavailable: { text: 'Not available', className: 'muted' },
   checking: { text: 'Checking…', className: 'muted' },
   check_failed: { text: 'Could not load the connection status.', className: 'error' },
+  needs_reconnect: { text: 'Reconnect required', className: 'error' },
 }
 
-// The server returns to /settings?google_workspace=<result> after a Google
-// Workspace connection attempt. Any other value is ignored.
-const googleNotices = {
-  connected: { text: 'Google Workspace is connected.', className: 'success', role: 'status' },
-  access_denied: {
-    text: 'Google Workspace was not connected because you cancelled the request on Google.',
-    className: 'error',
-    role: 'alert',
-  },
-  missing_scope: {
-    text: 'Google Workspace was not connected because you did not allow every requested permission. Connect again and allow all of them.',
-    className: 'error',
-    role: 'alert',
-  },
-  account_in_use: {
-    text: 'Google Workspace was not connected because this Google account is already connected to another Ariel user. Connect a different Google account.',
-    className: 'error',
-    role: 'alert',
-  },
-  failed: { text: 'Could not connect Google Workspace. Try again.', className: 'error', role: 'alert' },
-} as const
+type Notice = { text: string; className: 'success' | 'error'; role: 'status' | 'alert' }
 
-type GoogleNotice = (typeof googleNotices)[keyof typeof googleNotices]
+// After a connection attempt the server returns to /settings with one of
+// these parameters, whose value names the result. Any other value is ignored.
+const resultNotices: Record<string, Record<string, Notice>> = {
+  google_workspace: {
+    connected: { text: 'Google Workspace is connected.', className: 'success', role: 'status' },
+    access_denied: {
+      text: 'Google Workspace was not connected because you cancelled the request on Google.',
+      className: 'error',
+      role: 'alert',
+    },
+    missing_scope: {
+      text: 'Google Workspace was not connected because you did not allow every requested permission. Connect again and allow all of them.',
+      className: 'error',
+      role: 'alert',
+    },
+    account_in_use: {
+      text: 'Google Workspace was not connected because this Google account is already connected to another Ariel user. Connect a different Google account.',
+      className: 'error',
+      role: 'alert',
+    },
+    failed: { text: 'Could not connect Google Workspace. Try again.', className: 'error', role: 'alert' },
+  },
+  notion: {
+    connected: { text: 'Notion is connected.', className: 'success', role: 'status' },
+    access_denied: {
+      text: 'Notion was not connected because you cancelled the request on Notion.',
+      className: 'error',
+      role: 'alert',
+    },
+    wrong_workspace: {
+      text: 'Notion was not connected because the workspace you chose is not the one Ariel is set up for. Ask your Ariel administrator which workspace to use.',
+      className: 'error',
+      role: 'alert',
+    },
+    account_in_use: {
+      text: 'Notion was not connected because this Notion account is already connected to another Ariel user. Connect a different Notion account.',
+      className: 'error',
+      role: 'alert',
+    },
+    failed: { text: 'Could not connect Notion. Try again.', className: 'error', role: 'alert' },
+  },
+}
 
-const googleResultParam = 'google_workspace'
-
-function noticeFor(result: string | null): GoogleNotice | null {
-  if (result === null || !Object.prototype.hasOwnProperty.call(googleNotices, result)) {
-    return null
+function noticeFor(searchParams: URLSearchParams): Notice | null {
+  for (const [param, notices] of Object.entries(resultNotices)) {
+    const result = searchParams.get(param)
+    if (result !== null && Object.prototype.hasOwnProperty.call(notices, result)) {
+      return notices[result]
+    }
   }
-  return googleNotices[result as keyof typeof googleNotices]
+  return null
+}
+
+// useServiceStatus fetches the status of one service when the page opens and
+// returns the state with a function that fetches it again.
+function useServiceStatus<T>(fetchStatus: () => Promise<T>) {
+  const [state, setState] = useState<ServiceState<T>>({ kind: 'loading' })
+  const load = useCallback(async () => {
+    setState({ kind: 'loading' })
+    try {
+      setState({ kind: 'loaded', status: await fetchStatus() })
+    } catch {
+      setState({ kind: 'error' })
+    }
+  }, [fetchStatus])
+  useEffect(() => {
+    void load()
+  }, [load])
+  return [state, load] as const
 }
 
 export default function Settings() {
@@ -80,26 +126,20 @@ export default function Settings() {
   const [disconnectFailed, setDisconnectFailed] = useState<IntegrationID | null>(null)
   const [signingOut, setSigningOut] = useState(false)
   const [signOutFailed, setSignOutFailed] = useState(false)
-  const [google, setGoogle] = useState<GoogleWorkspaceState>({ kind: 'loading' })
-  const [notice] = useState(() => noticeFor(searchParams.get(googleResultParam)))
+  const [google, loadGoogle] = useServiceStatus(fetchGoogleWorkspaceStatus)
+  const [notion, loadNotion] = useServiceStatus(fetchNotionStatus)
+  const [notice] = useState(() => noticeFor(searchParams))
 
-  const loadGoogle = useCallback(async () => {
-    setGoogle({ kind: 'loading' })
-    try {
-      setGoogle({ kind: 'loaded', status: await fetchGoogleWorkspaceStatus() })
-    } catch {
-      setGoogle({ kind: 'error' })
-    }
-  }, [])
-
-  useEffect(() => {
-    void loadGoogle()
-  }, [loadGoogle])
+  // Services whose status the page fetches from their own API.
+  const reloadActions = useMemo<Partial<Record<IntegrationID, () => Promise<void>>>>(
+    () => ({ google_workspace: loadGoogle, notion: loadNotion }),
+    [loadGoogle, loadNotion],
+  )
 
   // Remove the result from the URL once it is shown, so a reload does not
   // show it again.
   useEffect(() => {
-    if (searchParams.has(googleResultParam)) {
+    if (Object.keys(resultNotices).some((param) => searchParams.has(param))) {
       setSearchParams({}, { replace: true })
     }
   }, [searchParams, setSearchParams])
@@ -133,7 +173,7 @@ export default function Settings() {
       return
     }
     setDisconnecting(null)
-    await loadGoogle()
+    await reloadActions[id]?.()
   }
 
   const onSignOut = async () => {
@@ -150,48 +190,63 @@ export default function Settings() {
     navigate('/login', { replace: true })
   }
 
+  const renderConnect = (integration: Integration, label: string) => {
+    const isConnecting = connecting === integration.id
+    const canConnect = integration.status !== 'coming_soon' && connectActions[integration.id] !== undefined
+    return (
+      <button
+        type="button"
+        className="button"
+        onClick={() => onConnect(integration.id)}
+        disabled={!canConnect || isConnecting}
+      >
+        {isConnecting ? `Redirecting to ${integration.name}…` : label}
+      </button>
+    )
+  }
+
+  const renderDisconnect = (integration: Integration) => {
+    if (!disconnectActions[integration.id]) {
+      return null
+    }
+    const isDisconnecting = disconnecting === integration.id
+    return (
+      <button
+        type="button"
+        className="button secondary"
+        onClick={() => void onDisconnect(integration.id)}
+        disabled={isDisconnecting}
+      >
+        {isDisconnecting ? 'Disconnecting…' : `Disconnect ${integration.name}`}
+      </button>
+    )
+  }
+
   const renderAction = (integration: Integration) => {
     switch (integration.status) {
-      case 'connected': {
-        if (!disconnectActions[integration.id]) {
-          return null
-        }
-        const isDisconnecting = disconnecting === integration.id
+      case 'connected':
+        return renderDisconnect(integration)
+      case 'needs_reconnect':
         return (
-          <button
-            type="button"
-            className="button secondary"
-            onClick={() => void onDisconnect(integration.id)}
-            disabled={isDisconnecting}
-          >
-            {isDisconnecting ? 'Disconnecting…' : `Disconnect ${integration.name}`}
-          </button>
+          <>
+            {renderConnect(integration, `Reconnect ${integration.name}`)}
+            {renderDisconnect(integration)}
+          </>
         )
-      }
-      case 'check_failed':
+      case 'check_failed': {
+        const recheck = reloadActions[integration.id]
         return (
-          <button type="button" className="button secondary" onClick={() => void loadGoogle()}>
+          <button type="button" className="button secondary" onClick={() => void recheck?.()}>
             Check {integration.name} again
           </button>
         )
+      }
       case 'checking':
       case 'unavailable':
         return null
       case 'not_connected':
-      case 'coming_soon': {
-        const isConnecting = connecting === integration.id
-        const canConnect = integration.status === 'not_connected' && connectActions[integration.id] !== undefined
-        return (
-          <button
-            type="button"
-            className="button"
-            onClick={() => onConnect(integration.id)}
-            disabled={!canConnect || isConnecting}
-          >
-            {isConnecting ? `Redirecting to ${integration.name}…` : `Connect ${integration.name}`}
-          </button>
-        )
-      }
+      case 'coming_soon':
+        return renderConnect(integration, `Connect ${integration.name}`)
     }
   }
 
@@ -207,7 +262,7 @@ export default function Settings() {
           </p>
         )}
         <ul className="integration-list">
-          {listIntegrations(me, google).map((integration) => {
+          {listIntegrations(me, google, notion).map((integration) => {
             const label = statusLabels[integration.status]
             return (
               <li key={integration.id} className="integration" aria-labelledby={`integration-${integration.id}`}>

@@ -1,4 +1,4 @@
-import type { GoogleWorkspaceStatus, Me } from './api'
+import type { GoogleWorkspaceStatus, Me, NotionStatus } from './api'
 
 export type IntegrationID = 'slack' | 'google_workspace' | 'notion' | 'github'
 export type IntegrationStatus =
@@ -8,6 +8,7 @@ export type IntegrationStatus =
   | 'unavailable'
   | 'checking'
   | 'check_failed'
+  | 'needs_reconnect'
 
 export type Integration = {
   id: IntegrationID
@@ -18,20 +19,25 @@ export type Integration = {
   account?: string
 }
 
-// The Google Workspace status comes from its own API, so the settings page
-// holds it separately from /api/auth/me.
-export type GoogleWorkspaceState =
-  | { kind: 'loading' }
-  | { kind: 'error' }
-  | { kind: 'loaded'; status: GoogleWorkspaceStatus }
+// The status of a service with its own status API. The settings page holds it
+// separately from /api/v1/auth/me.
+export type ServiceState<T> = { kind: 'loading' } | { kind: 'error' } | { kind: 'loaded'; status: T }
+
+export type GoogleWorkspaceState = ServiceState<GoogleWorkspaceStatus>
+export type NotionState = ServiceState<NotionStatus>
 
 const comingSoonDescription = 'You can connect this service in a later release.'
+const unavailableDescription = 'Your Ariel administrator has not set up this integration.'
 const slackDescription = 'When you mention @ariel in a Slack channel, Ariel replies in the thread.'
 const slackConnectedNote = 'You sign in to Ariel with Slack, so you cannot disconnect Slack on this page.'
 const googleDescription =
   'Gives Ariel read-only access to your Google Calendar, Gmail, and Drive files, including Docs, Sheets, and Slides. ' +
   'No Ariel feature uses this access yet. Ariel cannot create, change, or send anything.'
-const googleUnavailableDescription = 'Your Ariel administrator has not set up this integration.'
+const notionDescription =
+  'Gives Ariel read-only access to the Notion pages and databases you share with it. ' +
+  'No Ariel feature uses this access yet. Ariel cannot create or change anything.'
+const notionReconnectDescription =
+  'Ariel can no longer access your Notion pages. Reconnect Notion to give Ariel access again.'
 
 function googleWorkspace(google: GoogleWorkspaceState): Integration {
   const base = { id: 'google_workspace', name: 'Google Workspace', description: googleDescription } as const
@@ -42,7 +48,7 @@ function googleWorkspace(google: GoogleWorkspaceState): Integration {
       return { ...base, status: 'check_failed' }
     case 'loaded':
       if (!google.status.available) {
-        return { ...base, description: googleUnavailableDescription, status: 'unavailable' }
+        return { ...base, description: unavailableDescription, status: 'unavailable' }
       }
       if (google.status.connected) {
         return { ...base, status: 'connected', account: google.status.email }
@@ -51,10 +57,45 @@ function googleWorkspace(google: GoogleWorkspaceState): Integration {
   }
 }
 
+// notionAccount names the Notion user and workspace of a connection, such as
+// "Alice Example (Acme)". Either name can be missing.
+function notionAccount(status: NotionStatus): string | undefined {
+  if (status.user_name && status.workspace_name) {
+    return `${status.user_name} (${status.workspace_name})`
+  }
+  return status.user_name || status.workspace_name || undefined
+}
+
+function notion(state: NotionState): Integration {
+  const base = { id: 'notion', name: 'Notion', description: notionDescription } as const
+  switch (state.kind) {
+    case 'loading':
+      return { ...base, status: 'checking' }
+    case 'error':
+      return { ...base, status: 'check_failed' }
+    case 'loaded':
+      if (!state.status.available) {
+        return { ...base, description: unavailableDescription, status: 'unavailable' }
+      }
+      if (!state.status.connected) {
+        return { ...base, status: 'not_connected' }
+      }
+      if (state.status.needs_reconnect) {
+        return {
+          ...base,
+          description: notionReconnectDescription,
+          status: 'needs_reconnect',
+          account: notionAccount(state.status),
+        }
+      }
+      return { ...base, status: 'connected', account: notionAccount(state.status) }
+  }
+}
+
 // listIntegrations returns every service shown on the settings page, in display
-// order. Slack's status comes from /api/auth/me and Google Workspace's from
-// /api/integrations/google-workspace.
-export function listIntegrations(me: Me, google: GoogleWorkspaceState): Integration[] {
+// order. Slack's status comes from /api/v1/auth/me; Google Workspace and Notion
+// have their own status APIs under /api/v1/integrations.
+export function listIntegrations(me: Me, google: GoogleWorkspaceState, notionState: NotionState): Integration[] {
   return [
     {
       id: 'slack',
@@ -63,7 +104,7 @@ export function listIntegrations(me: Me, google: GoogleWorkspaceState): Integrat
       status: me.slack_connected ? 'connected' : 'not_connected',
     },
     googleWorkspace(google),
-    { id: 'notion', name: 'Notion', description: comingSoonDescription, status: 'coming_soon' },
+    notion(notionState),
     { id: 'github', name: 'GitHub', description: comingSoonDescription, status: 'coming_soon' },
   ]
 }

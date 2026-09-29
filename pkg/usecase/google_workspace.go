@@ -13,7 +13,7 @@ import (
 	"github.com/m-mizutani/ariel/pkg/utils/errutil"
 )
 
-const googleWorkspaceCallbackPath = "/api/integrations/google-workspace/callback"
+const googleWorkspaceCallbackPath = "/api/v1/integrations/google-workspace/callback"
 
 // googleWorkspaceScopes is requested at connect. The identity scopes are not
 // checked against the granted list; FetchIdentity proves them instead.

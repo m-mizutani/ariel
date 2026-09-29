@@ -38,7 +38,7 @@ type AuthConfig struct {
 const noAuthCode = "no-auth"
 
 func (c AuthConfig) callbackURL() string {
-	return c.BaseURL + "/api/auth/callback"
+	return c.BaseURL + "/api/v1/auth/callback"
 }
 
 type AuthUseCase struct {
