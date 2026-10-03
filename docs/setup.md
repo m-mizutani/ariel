@@ -158,7 +158,7 @@ organization that uses Robin.
 2. Open https://api.slack.com/apps, choose **Create New App** → **From an app
    manifest**, select your workspace, and paste the manifest.
 3. On **Basic Information** → **Display Information**, upload
-   `assets/robin.png` (1110 × 1110 PNG) as the **App icon**. The manifest
+   `docs/images/robin.png` (1110 × 1110 PNG) as the **App icon**. The manifest
    cannot set the icon.
 4. On **Install App**, install the app to the workspace. Copy the **Bot User
    OAuth Token** (`xoxb-...`) → `ROBIN_SLACK_BOT_TOKEN`.

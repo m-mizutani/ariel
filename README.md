@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/robin.png" alt="Robin logo" width="240" />
+  <img src="docs/images/robin.png" alt="Robin logo" width="240" />
 </p>
 
 <h1 align="center">Robin</h1>
@@ -32,7 +32,7 @@ GitHub App setup, and configuration. The Slack app manifest is
 
 ## Logo
 
-[`assets/robin.png`](assets/robin.png) is the original logo (1110 × 1110 PNG
+[`docs/images/robin.png`](docs/images/robin.png) is the original logo (1110 × 1110 PNG
 with transparency). Use it for the Slack app icon and other places that need
 the logo. The web UI uses copies resized from it:
 `frontend/src/assets/robin-logo.png` (256 px, login page),
