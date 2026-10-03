@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/robin.png" alt="Robin logo" width="240" />
+  <img src="docs/images/robin-readme.png" alt="Robin logo" height="128" />
 </p>
 
 <h1 align="center">Robin</h1>
@@ -29,12 +29,3 @@ Current features:
 See [docs/setup.md](docs/setup.md) for the Slack app, Google Cloud, Notion, and
 GitHub App setup, and configuration. The Slack app manifest is
 [docs/slack-app-manifest.yaml](docs/slack-app-manifest.yaml).
-
-## Logo
-
-[`docs/images/robin.png`](docs/images/robin.png) is the original logo (1110 × 1110 PNG
-with transparency). Use it for the Slack app icon and other places that need
-the logo. The web UI uses copies resized from it:
-`frontend/src/assets/robin-logo.png` (256 px, login page),
-`frontend/public/favicon.png` (64 px), and
-`frontend/public/apple-touch-icon.png` (180 px).
