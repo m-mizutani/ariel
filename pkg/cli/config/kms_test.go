@@ -5,11 +5,11 @@ import (
 
 	"github.com/m-mizutani/gt"
 
-	"github.com/m-mizutani/ariel/pkg/cli/config"
+	"github.com/m-mizutani/robin/pkg/cli/config"
 )
 
 func TestKMS_Validate(t *testing.T) {
-	unsetEnv(t, "ARIEL_KMS_KEY_NAME")
+	unsetEnv(t, "ROBIN_KMS_KEY_NAME")
 
 	t.Run("valid", func(t *testing.T) {
 		var k config.KMS

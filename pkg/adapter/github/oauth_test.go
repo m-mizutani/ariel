@@ -16,8 +16,8 @@ import (
 
 	"github.com/m-mizutani/gt"
 
-	"github.com/m-mizutani/ariel/pkg/adapter/github"
-	"github.com/m-mizutani/ariel/pkg/domain/interfaces"
+	"github.com/m-mizutani/robin/pkg/adapter/github"
+	"github.com/m-mizutani/robin/pkg/domain/interfaces"
 )
 
 type recordedRequest struct {
@@ -93,7 +93,7 @@ func (f *fakeGitHub) oauth() *github.OAuth {
 }
 
 const (
-	redirectURI  = "https://ariel.example.com/api/v1/integrations/github/callback"
+	redirectURI  = "https://robin.example.com/api/v1/integrations/github/callback"
 	codeVerifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
 	tokenPath    = "POST /login/oauth/access_token"
 	expiringBody = `{"access_token":"ghu_access","expires_in":28800,"refresh_token":"ghr_refresh","refresh_token_expires_in":15897600,"scope":"","token_type":"bearer"}`

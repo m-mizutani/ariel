@@ -8,9 +8,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/m-mizutani/goerr/v2"
 
-	"github.com/m-mizutani/ariel/pkg/domain/interfaces"
-	"github.com/m-mizutani/ariel/pkg/domain/model"
-	"github.com/m-mizutani/ariel/pkg/utils/errutil"
+	"github.com/m-mizutani/robin/pkg/domain/interfaces"
+	"github.com/m-mizutani/robin/pkg/domain/model"
+	"github.com/m-mizutani/robin/pkg/utils/errutil"
 )
 
 const (
@@ -77,11 +77,11 @@ func sleepContext(ctx context.Context, d time.Duration) error {
 // token undecryptable; bump the version and keep decrypting the old one
 // instead.
 func githubAccessTokenAAD(key model.UserKey) []byte {
-	return []byte("ariel:github-access-token:v1:" + string(key.TeamID) + ":" + string(key.UserID))
+	return []byte("robin:github-access-token:v1:" + string(key.TeamID) + ":" + string(key.UserID))
 }
 
 func githubRefreshTokenAAD(key model.UserKey) []byte {
-	return []byte("ariel:github-refresh-token:v1:" + string(key.TeamID) + ":" + string(key.UserID))
+	return []byte("robin:github-refresh-token:v1:" + string(key.TeamID) + ":" + string(key.UserID))
 }
 
 func keyValues(key model.UserKey) []goerr.Option {

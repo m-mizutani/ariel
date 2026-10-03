@@ -6,7 +6,7 @@ import (
 
 	"github.com/m-mizutani/goerr/v2"
 
-	"github.com/m-mizutani/ariel/pkg/domain/interfaces"
+	"github.com/m-mizutani/robin/pkg/domain/interfaces"
 )
 
 // errorBody is Notion's error response. The message is not attached to
@@ -23,7 +23,7 @@ func wrapError(status int, body []byte, msg string) error {
 	vals := []goerr.Option{goerr.V("notion_status", status), goerr.V("notion_code", eb.Code)}
 
 	switch {
-	// invalid_client is also 401, but it rejects Ariel's client credentials,
+	// invalid_client is also 401, but it rejects Robin's client credentials,
 	// not the user's token.
 	case status == http.StatusUnauthorized && eb.Code != "invalid_client",
 		status == http.StatusBadRequest && eb.Code == "invalid_grant":

@@ -10,7 +10,7 @@ import (
 
 	"github.com/m-mizutani/goerr/v2"
 
-	"github.com/m-mizutani/ariel/pkg/utils/safe"
+	"github.com/m-mizutani/robin/pkg/utils/safe"
 )
 
 // notionVersion is the Notion API version this package is written against.

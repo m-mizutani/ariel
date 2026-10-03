@@ -11,18 +11,18 @@ import (
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/urfave/cli/v3"
 
-	githubadapter "github.com/m-mizutani/ariel/pkg/adapter/github"
-	googleadapter "github.com/m-mizutani/ariel/pkg/adapter/google"
-	"github.com/m-mizutani/ariel/pkg/adapter/localcipher"
-	notionadapter "github.com/m-mizutani/ariel/pkg/adapter/notion"
-	slackadapter "github.com/m-mizutani/ariel/pkg/adapter/slack"
-	"github.com/m-mizutani/ariel/pkg/cli/config"
-	httpctrl "github.com/m-mizutani/ariel/pkg/controller/http"
-	"github.com/m-mizutani/ariel/pkg/domain/interfaces"
-	"github.com/m-mizutani/ariel/pkg/usecase"
-	"github.com/m-mizutani/ariel/pkg/utils/async"
-	"github.com/m-mizutani/ariel/pkg/utils/logging"
-	"github.com/m-mizutani/ariel/pkg/utils/safe"
+	githubadapter "github.com/m-mizutani/robin/pkg/adapter/github"
+	googleadapter "github.com/m-mizutani/robin/pkg/adapter/google"
+	"github.com/m-mizutani/robin/pkg/adapter/localcipher"
+	notionadapter "github.com/m-mizutani/robin/pkg/adapter/notion"
+	slackadapter "github.com/m-mizutani/robin/pkg/adapter/slack"
+	"github.com/m-mizutani/robin/pkg/cli/config"
+	httpctrl "github.com/m-mizutani/robin/pkg/controller/http"
+	"github.com/m-mizutani/robin/pkg/domain/interfaces"
+	"github.com/m-mizutani/robin/pkg/usecase"
+	"github.com/m-mizutani/robin/pkg/utils/async"
+	"github.com/m-mizutani/robin/pkg/utils/logging"
+	"github.com/m-mizutani/robin/pkg/utils/safe"
 )
 
 const (
@@ -31,7 +31,7 @@ const (
 	slackEventClaimTTL = 24 * time.Hour
 
 	// githubRequestTimeout bounds each call to GitHub, so a GitHub that does
-	// not answer cannot hold a request to Ariel open.
+	// not answer cannot hold a request to Robin open.
 	githubRequestTimeout = 30 * time.Second
 
 	readHeaderTimeout = 10 * time.Second

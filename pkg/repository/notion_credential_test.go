@@ -7,8 +7,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/m-mizutani/gt"
 
-	"github.com/m-mizutani/ariel/pkg/domain/interfaces"
-	"github.com/m-mizutani/ariel/pkg/domain/model"
+	"github.com/m-mizutani/robin/pkg/domain/interfaces"
+	"github.com/m-mizutani/robin/pkg/domain/model"
 )
 
 // newNotionCredential returns a credential of key for the Notion account

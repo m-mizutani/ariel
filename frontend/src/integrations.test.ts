@@ -83,7 +83,7 @@ describe('listIntegrations', () => {
       expect(google(googleNotConnected).description).toContain('read-only access')
       expect(google(googleNotConnected).description).toContain('cannot create, change, or send anything')
       expect(google({ kind: 'loaded', status: { available: false, connected: false, email: '' } }).description).toEqual(
-        'Your Ariel administrator has not set up this integration.',
+        'Your Robin administrator has not set up this integration.',
       )
     })
 
@@ -132,15 +132,15 @@ describe('listIntegrations', () => {
 
     it('describes the read-only access, the reconnection, or that the server has not set it up', () => {
       expect(notion(notionNotConnected).description).toEqual(
-        'Gives Ariel read-only access to the Notion pages and databases you share with it. ' +
-          'No Ariel feature uses this access yet. Ariel cannot create or change anything.',
+        'Gives Robin read-only access to the Notion pages and databases you share with it. ' +
+          'No Robin feature uses this access yet. Robin cannot create or change anything.',
       )
       expect(notion(notionConnected).description).toEqual(notion(notionNotConnected).description)
       expect(notion(notionStatus({ connected: true, needs_reconnect: true })).description).toEqual(
-        'Ariel can no longer access your Notion pages. Reconnect Notion to give Ariel access again.',
+        'Robin can no longer access your Notion pages. Reconnect Notion to give Robin access again.',
       )
       expect(notion(notionStatus({ available: false })).description).toEqual(
-        'Your Ariel administrator has not set up this integration.',
+        'Your Robin administrator has not set up this integration.',
       )
     })
 
@@ -175,13 +175,13 @@ describe('listIntegrations', () => {
 
     it('describes the read-only access, or that the server has not set it up', () => {
       expect(github(githubNotConnected).description).toEqual(
-        'Gives Ariel read-only access to the repositories, issues, pull requests, and other GitHub content your GitHub account can see, ' +
-          'in organizations where the Ariel GitHub App is installed. ' +
-          'No Ariel feature uses this access yet. Ariel cannot create or change anything.',
+        'Gives Robin read-only access to the repositories, issues, pull requests, and other GitHub content your GitHub account can see, ' +
+          'in organizations where the Robin GitHub App is installed. ' +
+          'No Robin feature uses this access yet. Robin cannot create or change anything.',
       )
       expect(github(githubConnected).description).toEqual(github(githubNotConnected).description)
       expect(github({ kind: 'loaded', status: { available: false, connected: false, login: '' } }).description).toEqual(
-        'Your Ariel administrator has not set up this integration.',
+        'Your Robin administrator has not set up this integration.',
       )
     })
 

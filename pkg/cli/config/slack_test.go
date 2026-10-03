@@ -5,8 +5,8 @@ import (
 
 	"github.com/m-mizutani/gt"
 
-	"github.com/m-mizutani/ariel/pkg/cli/config"
-	"github.com/m-mizutani/ariel/pkg/domain/model"
+	"github.com/m-mizutani/robin/pkg/cli/config"
+	"github.com/m-mizutani/robin/pkg/domain/model"
 )
 
 func slackArgs() map[string]string {
@@ -29,8 +29,8 @@ func toArgs(m map[string]string) []string {
 
 func clearSlackEnv(t *testing.T) {
 	t.Helper()
-	unsetEnv(t, "ARIEL_SLACK_CLIENT_ID", "ARIEL_SLACK_CLIENT_SECRET", "ARIEL_SLACK_SIGNING_SECRET",
-		"ARIEL_SLACK_BOT_TOKEN", "ARIEL_SLACK_TEAM_ID")
+	unsetEnv(t, "ROBIN_SLACK_CLIENT_ID", "ROBIN_SLACK_CLIENT_SECRET", "ROBIN_SLACK_SIGNING_SECRET",
+		"ROBIN_SLACK_BOT_TOKEN", "ROBIN_SLACK_TEAM_ID")
 }
 
 func TestSlack_Validate(t *testing.T) {

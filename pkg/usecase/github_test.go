@@ -11,13 +11,13 @@ import (
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/m-mizutani/gt"
 
-	"github.com/m-mizutani/ariel/pkg/domain/interfaces"
-	"github.com/m-mizutani/ariel/pkg/domain/model"
-	"github.com/m-mizutani/ariel/pkg/repository/memory"
-	"github.com/m-mizutani/ariel/pkg/usecase"
+	"github.com/m-mizutani/robin/pkg/domain/interfaces"
+	"github.com/m-mizutani/robin/pkg/domain/model"
+	"github.com/m-mizutani/robin/pkg/repository/memory"
+	"github.com/m-mizutani/robin/pkg/usecase"
 )
 
-const githubCallbackURL = "https://ariel.example.com/api/v1/integrations/github/callback"
+const githubCallbackURL = "https://robin.example.com/api/v1/integrations/github/callback"
 
 var octocat = &model.GitHubIdentity{ID: 583231, Login: "octocat"}
 
@@ -33,7 +33,7 @@ type githubExchangeCall struct {
 	CodeVerifier string
 }
 
-// fakeGitHubOAuth returns configured results and records every call Ariel
+// fakeGitHubOAuth returns configured results and records every call Robin
 // would make to GitHub.
 type fakeGitHubOAuth struct {
 	mu          sync.Mutex
@@ -171,7 +171,7 @@ func newGitHubFixture() *githubFixture {
 	f.oauth.token = expiringToken(f.now, "first")
 	f.access = usecase.NewGitHubUserAccess(f.repo, f.cipher, f.oauth, f.users)
 	f.access.SetClockForTest(f.clock, f.sleep, f.newID)
-	f.uc = usecase.NewGitHubUseCase(f.oauth, f.users, f.access, usecase.GitHubConfig{BaseURL: "https://ariel.example.com"})
+	f.uc = usecase.NewGitHubUseCase(f.oauth, f.users, f.access, usecase.GitHubConfig{BaseURL: "https://robin.example.com"})
 	return f
 }
 
@@ -277,8 +277,8 @@ func TestGitHubUseCase_HandleCallback(t *testing.T) {
 	refresh, err := f.cipher.Decrypt(context.Background(), cred.RefreshToken, usecase.GitHubRefreshTokenAADForTest(testKey))
 	gt.NoError(t, err).Required()
 	gt.String(t, string(refresh)).Equal("ghr_first")
-	gt.String(t, string(usecase.GitHubAccessTokenAADForTest(testKey))).Equal("ariel:github-access-token:v1:T0123ABCD:U0123ABCD")
-	gt.String(t, string(usecase.GitHubRefreshTokenAADForTest(testKey))).Equal("ariel:github-refresh-token:v1:T0123ABCD:U0123ABCD")
+	gt.String(t, string(usecase.GitHubAccessTokenAADForTest(testKey))).Equal("robin:github-access-token:v1:T0123ABCD:U0123ABCD")
+	gt.String(t, string(usecase.GitHubRefreshTokenAADForTest(testKey))).Equal("robin:github-refresh-token:v1:T0123ABCD:U0123ABCD")
 
 	inUse, err := f.repo.GitHubCredential().AccountInUse(context.Background(), otherKey, octocat.ID)
 	gt.NoError(t, err).Required()
@@ -382,7 +382,7 @@ func TestGitHubUseCase_HandleCallbackRejectKeepsAnotherUsersConnection(t *testin
 	}
 	repo := &hookedRepository{Memory: f.repo, github: creds}
 	access := usecase.NewGitHubUserAccess(repo, f.cipher, f.oauth, f.users)
-	uc := usecase.NewGitHubUseCase(f.oauth, f.users, access, usecase.GitHubConfig{BaseURL: "https://ariel.example.com"})
+	uc := usecase.NewGitHubUseCase(f.oauth, f.users, access, usecase.GitHubConfig{BaseURL: "https://robin.example.com"})
 
 	err = uc.HandleCallback(context.Background(), testKey, "code-1", "verifier-1")
 	gt.Error(t, err).Is(usecase.ErrGitHubConnectRejected)
@@ -440,7 +440,7 @@ func TestGitHubUseCase_HandleCallbackRacingSameUser(t *testing.T) {
 			gt.NoError(t, f.repo.GitHubCredential().Create(context.Background(), testKey, other.stored(t))).Required()
 		})
 	}}
-	uc := usecase.NewGitHubUseCase(f.oauth, hooked, f.access, usecase.GitHubConfig{BaseURL: "https://ariel.example.com"})
+	uc := usecase.NewGitHubUseCase(f.oauth, hooked, f.access, usecase.GitHubConfig{BaseURL: "https://robin.example.com"})
 
 	err := uc.HandleCallback(context.Background(), testKey, "code-2", "verifier-2")
 	gt.Error(t, err).Is(usecase.ErrGitHubAlreadyConnected)

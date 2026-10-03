@@ -8,8 +8,8 @@ import (
 
 	"github.com/m-mizutani/gt"
 
-	"github.com/m-mizutani/ariel/pkg/domain/interfaces"
-	"github.com/m-mizutani/ariel/pkg/domain/model"
+	"github.com/m-mizutani/robin/pkg/domain/interfaces"
+	"github.com/m-mizutani/robin/pkg/domain/model"
 )
 
 const testKeyName = "projects/p/locations/l/keyRings/r/cryptoKeys/k"

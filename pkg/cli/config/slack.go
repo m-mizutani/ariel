@@ -4,7 +4,7 @@ import (
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/urfave/cli/v3"
 
-	"github.com/m-mizutani/ariel/pkg/domain/model"
+	"github.com/m-mizutani/robin/pkg/domain/model"
 )
 
 type Slack struct {
@@ -21,35 +21,35 @@ func (x *Slack) Flags() []cli.Flag {
 			Name:        "slack-client-id",
 			Category:    "Slack",
 			Usage:       "Client ID of the Slack app",
-			Sources:     cli.EnvVars("ARIEL_SLACK_CLIENT_ID"),
+			Sources:     cli.EnvVars("ROBIN_SLACK_CLIENT_ID"),
 			Destination: &x.clientID,
 		},
 		&cli.StringFlag{
 			Name:        "slack-client-secret",
 			Category:    "Slack",
 			Usage:       "Client secret of the Slack app",
-			Sources:     cli.EnvVars("ARIEL_SLACK_CLIENT_SECRET"),
+			Sources:     cli.EnvVars("ROBIN_SLACK_CLIENT_SECRET"),
 			Destination: &x.clientSecret,
 		},
 		&cli.StringFlag{
 			Name:        "slack-signing-secret",
 			Category:    "Slack",
 			Usage:       "Signing secret of the Slack app, used to verify Events API requests",
-			Sources:     cli.EnvVars("ARIEL_SLACK_SIGNING_SECRET"),
+			Sources:     cli.EnvVars("ROBIN_SLACK_SIGNING_SECRET"),
 			Destination: &x.signingSecret,
 		},
 		&cli.StringFlag{
 			Name:        "slack-bot-token",
 			Category:    "Slack",
 			Usage:       "Bot user OAuth token (xoxb-...)",
-			Sources:     cli.EnvVars("ARIEL_SLACK_BOT_TOKEN"),
+			Sources:     cli.EnvVars("ROBIN_SLACK_BOT_TOKEN"),
 			Destination: &x.botToken,
 		},
 		&cli.StringFlag{
 			Name:        "slack-team-id",
 			Category:    "Slack",
 			Usage:       "ID of the Slack workspace (T...) this server accepts",
-			Sources:     cli.EnvVars("ARIEL_SLACK_TEAM_ID"),
+			Sources:     cli.EnvVars("ROBIN_SLACK_TEAM_ID"),
 			Destination: &x.teamID,
 		},
 	}

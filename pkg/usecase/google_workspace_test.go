@@ -11,13 +11,13 @@ import (
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/m-mizutani/gt"
 
-	"github.com/m-mizutani/ariel/pkg/domain/interfaces"
-	"github.com/m-mizutani/ariel/pkg/domain/model"
-	"github.com/m-mizutani/ariel/pkg/repository/memory"
-	"github.com/m-mizutani/ariel/pkg/usecase"
+	"github.com/m-mizutani/robin/pkg/domain/interfaces"
+	"github.com/m-mizutani/robin/pkg/domain/model"
+	"github.com/m-mizutani/robin/pkg/repository/memory"
+	"github.com/m-mizutani/robin/pkg/usecase"
 )
 
-const googleCallbackURL = "https://ariel.example.com/api/v1/integrations/google-workspace/callback"
+const googleCallbackURL = "https://robin.example.com/api/v1/integrations/google-workspace/callback"
 
 type authorizeCall struct {
 	State       string
@@ -30,7 +30,7 @@ type exchangeCall struct {
 	RedirectURI string
 }
 
-// fakeGoogleOAuth returns configured results and records every call Ariel
+// fakeGoogleOAuth returns configured results and records every call Robin
 // would make to Google.
 type fakeGoogleOAuth struct {
 	mu          sync.Mutex
@@ -115,7 +115,7 @@ func newGoogleFixture() *googleFixture {
 		now:    time.Date(2026, 9, 29, 10, 0, 0, 0, time.UTC),
 	}
 	f.uc = usecase.NewGoogleWorkspaceUseCase(f.oauth, usecase.NewGoogleWorkspaceAccess(f.repo, f.cipher),
-		usecase.GoogleWorkspaceConfig{BaseURL: "https://ariel.example.com"})
+		usecase.GoogleWorkspaceConfig{BaseURL: "https://robin.example.com"})
 	f.uc.SetNowForTest(func() time.Time { return f.now })
 	return f
 }
@@ -323,7 +323,7 @@ func TestGoogleWorkspaceUseCase_ConflictFoundWhenStoring(t *testing.T) {
 	cipher := &fakeCipher{}
 	oauth := newFakeGoogleOAuth()
 	uc := usecase.NewGoogleWorkspaceUseCase(oauth, usecase.NewGoogleWorkspaceAccess(racingRepository{repo}, cipher),
-		usecase.GoogleWorkspaceConfig{BaseURL: "https://ariel.example.com"})
+		usecase.GoogleWorkspaceConfig{BaseURL: "https://robin.example.com"})
 	gt.NoError(t, usecase.NewGoogleWorkspaceAccess(repo, cipher).
 		Store(ctx, otherKey, "refresh-other", googleScopes, aliceIdentity, time.Now())).Required()
 

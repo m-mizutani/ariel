@@ -9,8 +9,8 @@ import (
 
 	"github.com/m-mizutani/goerr/v2"
 
-	"github.com/m-mizutani/ariel/pkg/domain/interfaces"
-	"github.com/m-mizutani/ariel/pkg/domain/model"
+	"github.com/m-mizutani/robin/pkg/domain/interfaces"
+	"github.com/m-mizutani/robin/pkg/domain/model"
 )
 
 // NotionAccess is the only component that reads, writes, encrypts, or
@@ -35,7 +35,7 @@ func NewNotionAccess(repo interfaces.Repository, cipher interfaces.Cipher,
 // every stored token undecryptable; bump the version and keep decrypting the
 // old one instead.
 func notionTokenAAD(key model.UserKey) []byte {
-	return []byte("ariel:notion-token:v1:" + string(key.TeamID) + ":" + string(key.UserID))
+	return []byte("robin:notion-token:v1:" + string(key.TeamID) + ":" + string(key.UserID))
 }
 
 type NotionStatus struct {
@@ -232,7 +232,7 @@ func invalidNotionRequest(err error) error {
 	return goerr.Wrap(errors.Join(ErrNotionInvalidRequest, err), "invalid notion request")
 }
 
-// Search searches the pages and data sources the user shared with Ariel.
+// Search searches the pages and data sources the user shared with Robin.
 func (a *NotionAccess) Search(ctx context.Context, key model.UserKey, q model.NotionSearchQuery) (*model.NotionList, error) {
 	if err := q.Validate(); err != nil {
 		return nil, invalidNotionRequest(err)

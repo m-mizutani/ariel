@@ -6,8 +6,8 @@ import (
 
 	"github.com/m-mizutani/gt"
 
-	"github.com/m-mizutani/ariel/pkg/domain/interfaces"
-	"github.com/m-mizutani/ariel/pkg/domain/model"
+	"github.com/m-mizutani/robin/pkg/domain/interfaces"
+	"github.com/m-mizutani/robin/pkg/domain/model"
 )
 
 func newCredential(key model.UserKey, ciphertext string) *model.SlackCredential {

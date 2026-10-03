@@ -6,12 +6,12 @@ import (
 
 	"github.com/m-mizutani/gt"
 
-	"github.com/m-mizutani/ariel/pkg/cli/config"
-	"github.com/m-mizutani/ariel/pkg/repository/memory"
+	"github.com/m-mizutani/robin/pkg/cli/config"
+	"github.com/m-mizutani/robin/pkg/repository/memory"
 )
 
 func TestRepository_Validate(t *testing.T) {
-	unsetEnv(t, "ARIEL_REPOSITORY_BACKEND", "ARIEL_FIRESTORE_PROJECT_ID", "ARIEL_FIRESTORE_DATABASE_ID")
+	unsetEnv(t, "ROBIN_REPOSITORY_BACKEND", "ROBIN_FIRESTORE_PROJECT_ID", "ROBIN_FIRESTORE_DATABASE_ID")
 
 	t.Run("firestore requires a project ID", func(t *testing.T) {
 		var r config.Repository

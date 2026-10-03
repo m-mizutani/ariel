@@ -7,13 +7,13 @@ import (
 
 	"github.com/m-mizutani/goerr/v2"
 
-	"github.com/m-mizutani/ariel/pkg/domain/model/auth"
-	"github.com/m-mizutani/ariel/pkg/usecase"
-	"github.com/m-mizutani/ariel/pkg/utils/errutil"
+	"github.com/m-mizutani/robin/pkg/domain/model/auth"
+	"github.com/m-mizutani/robin/pkg/usecase"
+	"github.com/m-mizutani/robin/pkg/utils/errutil"
 )
 
 const (
-	googleStateCookieName = "ariel_google_oauth_state"
+	googleStateCookieName = "robin_google_oauth_state"
 	googleStateCookiePath = apiV1Path + "/integrations/google-workspace"
 
 	// The settings page reads googleResultParam to tell the user how the

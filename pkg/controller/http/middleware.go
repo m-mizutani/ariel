@@ -9,10 +9,10 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/m-mizutani/goerr/v2"
 
-	"github.com/m-mizutani/ariel/pkg/domain/model/auth"
-	"github.com/m-mizutani/ariel/pkg/usecase"
-	"github.com/m-mizutani/ariel/pkg/utils/errutil"
-	"github.com/m-mizutani/ariel/pkg/utils/logging"
+	"github.com/m-mizutani/robin/pkg/domain/model/auth"
+	"github.com/m-mizutani/robin/pkg/usecase"
+	"github.com/m-mizutani/robin/pkg/utils/errutil"
+	"github.com/m-mizutani/robin/pkg/utils/logging"
 )
 
 // authenticateRequest returns the session of the request cookies. Missing

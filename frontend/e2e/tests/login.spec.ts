@@ -18,6 +18,20 @@ test('a signed-out visitor is sent to the login page', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Sign in with Slack' })).toBeVisible()
 })
 
+test('the login page shows the logo and the page has the favicon', async ({ page }) => {
+  await page.goto('/login')
+  const logo = page.getByRole('img', { name: 'Robin logo' })
+  await expect(logo).toBeVisible()
+  // naturalWidth is 0 when the browser could not load or decode the image.
+  expect(await logo.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0)
+
+  const href = await page.locator('link[rel="icon"]').getAttribute('href')
+  expect(href).toBe('/favicon.png')
+  const favicon = await page.request.get(href!)
+  expect(favicon.status()).toBe(200)
+  expect(favicon.headers()['content-type']).toBe('image/png')
+})
+
 test('signing in shows the settings page and sets HttpOnly session cookies', async ({ page, context }) => {
   await signIn(page)
 
@@ -26,10 +40,10 @@ test('signing in shows the settings page and sets HttpOnly session cookies', asy
 
   const cookies = await context.cookies()
   const names = cookies.map((c) => c.name)
-  expect(names).toContain('ariel_session_id')
-  expect(names).toContain('ariel_session_secret')
-  expect(names).not.toContain('ariel_oauth_state')
-  for (const c of cookies.filter((c) => c.name.startsWith('ariel_session_'))) {
+  expect(names).toContain('robin_session_id')
+  expect(names).toContain('robin_session_secret')
+  expect(names).not.toContain('robin_oauth_state')
+  for (const c of cookies.filter((c) => c.name.startsWith('robin_session_'))) {
     expect(c.httpOnly).toBe(true)
     expect(c.sameSite).toBe('Lax')
   }
@@ -53,7 +67,7 @@ test('signing out ends the session', async ({ page, context }) => {
   await expect(page).toHaveURL('/login')
 
   const names = (await context.cookies()).map((c) => c.name)
-  expect(names).not.toContain('ariel_session_id')
+  expect(names).not.toContain('robin_session_id')
 
   await page.goto('/')
   await expect(page).toHaveURL('/login')

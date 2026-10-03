@@ -11,7 +11,7 @@ import { e2eNotionClientID, e2eUserID, fakeNotionURL } from '../../playwright.e2
 //
 // Not covered here, but by unit tests and screenshots: "Not available" (this
 // server has Notion configured), "Reconnect required" (no page action makes
-// Notion reject a refresh token), and "connected to another Ariel user"
+// Notion reject a refresh token), and "connected to another Robin user"
 // (--no-auth has only one user).
 
 const notionRow = (page: Page) => page.getByRole('listitem', { name: 'Notion' })
@@ -117,7 +117,7 @@ test('cancelling on Notion returns to the settings page with a message', async (
   )
   await expect(page).toHaveURL('/settings')
   await expect(notionRow(page).getByText('Not connected')).toBeVisible()
-  expect((await context.cookies()).map((c) => c.name)).not.toContain('ariel_notion_oauth_state')
+  expect((await context.cookies()).map((c) => c.name)).not.toContain('robin_notion_oauth_state')
 })
 
 test('a workspace other than the configured one is rejected and its token revoked', async ({ page, request }) => {
@@ -126,7 +126,7 @@ test('a workspace other than the configured one is rejected and its token revoke
   await notionRow(page).getByRole('button', { name: 'Connect Notion' }).click()
 
   await expect(page.getByRole('alert')).toHaveText(
-    'Notion was not connected because the workspace you chose is not the one Ariel is set up for. Ask your Ariel administrator which workspace to use.',
+    'Notion was not connected because the workspace you chose is not the one Robin is set up for. Ask your Robin administrator which workspace to use.',
   )
   await expect(notionRow(page).getByText('Not connected')).toBeVisible()
   expect((await fakeNotion(request)).revokes).toHaveLength(1)

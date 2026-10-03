@@ -14,10 +14,10 @@ import (
 	"github.com/m-mizutani/gt"
 	"github.com/slack-go/slack/slackevents"
 
-	httpctrl "github.com/m-mizutani/ariel/pkg/controller/http"
-	"github.com/m-mizutani/ariel/pkg/domain/model"
-	"github.com/m-mizutani/ariel/pkg/domain/model/auth"
-	"github.com/m-mizutani/ariel/pkg/usecase"
+	httpctrl "github.com/m-mizutani/robin/pkg/controller/http"
+	"github.com/m-mizutani/robin/pkg/domain/model"
+	"github.com/m-mizutani/robin/pkg/domain/model/auth"
+	"github.com/m-mizutani/robin/pkg/usecase"
 )
 
 const testSigningSecret = "signing-secret"
@@ -124,7 +124,7 @@ func (f *fakeSlackEventUseCase) handled() []*slackevents.EventsAPIEvent {
 }
 
 var testStatic = fstest.MapFS{
-	"index.html":    {Data: []byte("<!doctype html><title>Ariel</title>")},
+	"index.html":    {Data: []byte("<!doctype html><title>Robin</title>")},
 	"assets/app.js": {Data: []byte("console.log('app')")},
 }
 
@@ -162,14 +162,14 @@ func decodeJSON(t *testing.T, body io.Reader) map[string]any {
 }
 
 func TestServer_SPA(t *testing.T) {
-	srv := newTestServer(t, "https://ariel.example.com", newFakeAuthUseCase(), &fakeSlackEventUseCase{})
+	srv := newTestServer(t, "https://robin.example.com", newFakeAuthUseCase(), &fakeSlackEventUseCase{})
 
 	for _, path := range []string{"/", "/login", "/settings"} {
 		t.Run(path, func(t *testing.T) {
 			w := httptest.NewRecorder()
 			srv.ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, nil))
 			gt.Number(t, w.Code).Equal(http.StatusOK)
-			gt.String(t, w.Body.String()).Contains("<title>Ariel</title>")
+			gt.String(t, w.Body.String()).Contains("<title>Robin</title>")
 		})
 	}
 
@@ -193,7 +193,7 @@ func TestServer_SPA(t *testing.T) {
 // The API moved under /api/v1 without keeping the old paths.
 func TestServer_PathsBeforeV1AreNotFound(t *testing.T) {
 	authUC := newFakeAuthUseCase()
-	srv, err := httpctrl.New(authUC, httpctrl.Config{BaseURL: "https://ariel.example.com", Static: testStatic},
+	srv, err := httpctrl.New(authUC, httpctrl.Config{BaseURL: "https://robin.example.com", Static: testStatic},
 		httpctrl.WithGoogleWorkspace(newFakeGoogleWorkspaceUseCase()), httpctrl.WithNotion(newFakeNotionUseCase()),
 		httpctrl.WithGitHub(newFakeGitHubUseCase()))
 	gt.NoError(t, err).Required()

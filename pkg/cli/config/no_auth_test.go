@@ -5,12 +5,12 @@ import (
 
 	"github.com/m-mizutani/gt"
 
-	"github.com/m-mizutani/ariel/pkg/cli/config"
-	"github.com/m-mizutani/ariel/pkg/domain/model"
+	"github.com/m-mizutani/robin/pkg/cli/config"
+	"github.com/m-mizutani/robin/pkg/domain/model"
 )
 
 func TestNoAuth(t *testing.T) {
-	unsetEnv(t, "ARIEL_NO_AUTH")
+	unsetEnv(t, "ROBIN_NO_AUTH")
 
 	t.Run("disabled by default", func(t *testing.T) {
 		var n config.NoAuth

@@ -7,8 +7,8 @@ import (
 
 	"github.com/m-mizutani/gt"
 
-	"github.com/m-mizutani/ariel/pkg/adapter/localcipher"
-	"github.com/m-mizutani/ariel/pkg/domain/model"
+	"github.com/m-mizutani/robin/pkg/adapter/localcipher"
+	"github.com/m-mizutani/robin/pkg/domain/model"
 )
 
 func newCipher(t *testing.T) *localcipher.Cipher {

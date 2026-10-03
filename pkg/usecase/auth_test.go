@@ -11,15 +11,15 @@ import (
 
 	"github.com/m-mizutani/gt"
 
-	"github.com/m-mizutani/ariel/pkg/domain/interfaces"
-	"github.com/m-mizutani/ariel/pkg/domain/model"
-	"github.com/m-mizutani/ariel/pkg/domain/model/auth"
-	"github.com/m-mizutani/ariel/pkg/repository/memory"
-	"github.com/m-mizutani/ariel/pkg/usecase"
+	"github.com/m-mizutani/robin/pkg/domain/interfaces"
+	"github.com/m-mizutani/robin/pkg/domain/model"
+	"github.com/m-mizutani/robin/pkg/domain/model/auth"
+	"github.com/m-mizutani/robin/pkg/repository/memory"
+	"github.com/m-mizutani/robin/pkg/usecase"
 )
 
 const (
-	testBaseURL    = "https://ariel.example.com"
+	testBaseURL    = "https://robin.example.com"
 	testUserToken  = model.SlackUserToken("xoxp-user-token")
 	testSessionTTL = 7 * 24 * time.Hour
 )
@@ -131,8 +131,8 @@ func TestAuthUseCase_HandleCallback(t *testing.T) {
 	gt.NoError(t, err).Required()
 	gt.Array(t, f.cipher.encryptions).Length(1).Required()
 	gt.Value(t, f.cipher.encryptions[0].Data).Equal([]byte(testUserToken))
-	gt.String(t, string(f.cipher.encryptions[0].AAD)).Equal("ariel:slack-user-token:v1:T0123ABCD:U0123ABCD")
-	gt.Value(t, cred.AccessToken.Ciphertext).Equal(append([]byte("ariel:slack-user-token:v1:T0123ABCD:U0123ABCD|"), []byte(testUserToken)...))
+	gt.String(t, string(f.cipher.encryptions[0].AAD)).Equal("robin:slack-user-token:v1:T0123ABCD:U0123ABCD")
+	gt.Value(t, cred.AccessToken.Ciphertext).Equal(append([]byte("robin:slack-user-token:v1:T0123ABCD:U0123ABCD|"), []byte(testUserToken)...))
 	gt.Value(t, cred.Scopes).Equal([]string{"search:read"})
 
 	stored, err := f.repo.Session().Get(ctx, session.ID)

@@ -12,8 +12,8 @@ import (
 
 	"github.com/m-mizutani/gt"
 
-	"github.com/m-mizutani/ariel/pkg/adapter/notion"
-	"github.com/m-mizutani/ariel/pkg/domain/model"
+	"github.com/m-mizutani/robin/pkg/adapter/notion"
+	"github.com/m-mizutani/robin/pkg/domain/model"
 )
 
 // recordedRequest is what fakeNotion saw of one request.
@@ -78,7 +78,7 @@ func (f *fakeNotion) recorded() []recordedRequest {
 const (
 	testClientID     = "client-id"
 	testClientSecret = "client-secret"
-	testRedirectURI  = "https://ariel.example.com/api/v1/integrations/notion/callback"
+	testRedirectURI  = "https://robin.example.com/api/v1/integrations/notion/callback"
 )
 
 const tokenResponseBody = `{

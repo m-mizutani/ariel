@@ -3,7 +3,7 @@ package interfaces
 import (
 	"context"
 
-	"github.com/m-mizutani/ariel/pkg/domain/model"
+	"github.com/m-mizutani/robin/pkg/domain/model"
 )
 
 // Cipher encrypts secrets before they are persisted. aad (additional

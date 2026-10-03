@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Ariel is an AI agent that works as a Slack bot and a web UI. The backend is Go,
+Robin is an AI agent that works as a Slack bot and a web UI. The backend is Go,
 the frontend is React + TypeScript (Vite, pnpm) embedded into the Go binary.
 The code layout follows secmon-lab/hecatoncheires, with a REST API instead of
 GraphQL.
@@ -47,11 +47,11 @@ Slack Events API handlers acknowledge within three seconds and run the rest in
 - The user key of a request comes only from a verified Slack event or a verified
   web session. A user's token is used only for that same user's requests.
 - The KMS additional authenticated data of a token is
-  `ariel:slack-user-token:v1:{TeamID}:{UserID}` for Slack,
-  `ariel:google-refresh-token:v1:{TeamID}:{UserID}` for Google,
-  `ariel:notion-token:v1:{TeamID}:{UserID}` for Notion, and
-  `ariel:github-access-token:v1:{TeamID}:{UserID}` /
-  `ariel:github-refresh-token:v1:{TeamID}:{UserID}` for GitHub. Changing any of them
+  `robin:slack-user-token:v1:{TeamID}:{UserID}` for Slack,
+  `robin:google-refresh-token:v1:{TeamID}:{UserID}` for Google,
+  `robin:notion-token:v1:{TeamID}:{UserID}` for Notion, and
+  `robin:github-access-token:v1:{TeamID}:{UserID}` /
+  `robin:github-refresh-token:v1:{TeamID}:{UserID}` for GitHub. Changing any of them
   makes stored tokens undecryptable; add a new version instead.
 
 ## Conventions
@@ -100,7 +100,7 @@ alters what a page does) must come with Playwright E2E tests that cover the
 UI's use cases end to end, not only unit tests.
 
 - Tests live in `frontend/e2e/tests/` and run against the real server
-  (`frontend/playwright.e2e.config.ts` starts `../ariel serve` with
+  (`frontend/playwright.e2e.config.ts` starts `../robin serve` with
   `--no-auth U0E2ETEST --repository-backend memory`). Do not mock the API
   here; the point is to exercise the server and the page together.
 - Cover every use case the user performs on the changed screens, including

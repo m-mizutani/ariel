@@ -67,7 +67,7 @@ const resultNotices: Record<string, Record<string, Notice>> = {
       role: 'alert',
     },
     account_in_use: {
-      text: 'Google Workspace was not connected because this Google account is already connected to another Ariel user. Connect a different Google account.',
+      text: 'Google Workspace was not connected because this Google account is already connected to another Robin user. Connect a different Google account.',
       className: 'error',
       role: 'alert',
     },
@@ -81,12 +81,12 @@ const resultNotices: Record<string, Record<string, Notice>> = {
       role: 'alert',
     },
     wrong_workspace: {
-      text: 'Notion was not connected because the workspace you chose is not the one Ariel is set up for. Ask your Ariel administrator which workspace to use.',
+      text: 'Notion was not connected because the workspace you chose is not the one Robin is set up for. Ask your Robin administrator which workspace to use.',
       className: 'error',
       role: 'alert',
     },
     account_in_use: {
-      text: 'Notion was not connected because this Notion account is already connected to another Ariel user. Connect a different Notion account.',
+      text: 'Notion was not connected because this Notion account is already connected to another Robin user. Connect a different Notion account.',
       className: 'error',
       role: 'alert',
     },
@@ -100,7 +100,7 @@ const resultNotices: Record<string, Record<string, Notice>> = {
       role: 'alert',
     },
     account_in_use: {
-      text: 'GitHub was not connected because this GitHub account is already connected to another Ariel user. Connect a different GitHub account.',
+      text: 'GitHub was not connected because this GitHub account is already connected to another Robin user. Connect a different GitHub account.',
       className: 'error',
       role: 'alert',
     },

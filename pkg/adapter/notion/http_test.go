@@ -8,7 +8,7 @@ import (
 
 	"github.com/m-mizutani/gt"
 
-	"github.com/m-mizutani/ariel/pkg/adapter/notion"
+	"github.com/m-mizutani/robin/pkg/adapter/notion"
 )
 
 func TestResponseSizeLimit(t *testing.T) {

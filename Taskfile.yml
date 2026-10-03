@@ -4,10 +4,10 @@ version: "3"
 
 tasks:
   build:
-    desc: "Build the frontend and the ariel binary"
+    desc: "Build the frontend and the robin binary"
     cmds:
       - task: build:frontend
-      - go build -o ariel .
+      - go build -o robin .
 
   build:frontend:
     desc: "Build the frontend into frontend/dist (embedded into the Go binary)"
@@ -50,17 +50,17 @@ tasks:
     desc: "Run the Go tests against a Firestore emulator in Docker"
     cmds:
       - |
-        docker rm -f ariel-firestore-emulator >/dev/null 2>&1 || true
-        docker run -d --name ariel-firestore-emulator -p 28615:28615 \
+        docker rm -f robin-firestore-emulator >/dev/null 2>&1 || true
+        docker run -d --name robin-firestore-emulator -p 28615:28615 \
           google/cloud-sdk@sha256:c2b7406c44f3aeaf2c90854337c65de4ac7a7ab07e2ab592eb8df140af1129b9 \
           gcloud emulators firestore start --host-port=0.0.0.0:28615
-        trap 'docker rm -f ariel-firestore-emulator >/dev/null 2>&1' EXIT
+        trap 'docker rm -f robin-firestore-emulator >/dev/null 2>&1' EXIT
         i=0
         until curl -s http://127.0.0.1:28615/ >/dev/null 2>&1; do
           i=$((i+1))
           if [ "$i" -ge 90 ]; then
             echo "firestore emulator did not become ready" >&2
-            docker logs ariel-firestore-emulator || true
+            docker logs robin-firestore-emulator || true
             exit 1
           fi
           sleep 1

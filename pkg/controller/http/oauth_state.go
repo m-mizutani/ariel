@@ -7,7 +7,7 @@ import (
 
 	"github.com/m-mizutani/goerr/v2"
 
-	"github.com/m-mizutani/ariel/pkg/domain/model/auth"
+	"github.com/m-mizutani/robin/pkg/domain/model/auth"
 )
 
 // oauthStateCookieValue binds the OAuth state of a service connection to the

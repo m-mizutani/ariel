@@ -6,7 +6,7 @@ import (
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/urfave/cli/v3"
 
-	"github.com/m-mizutani/ariel/pkg/adapter/kms"
+	"github.com/m-mizutani/robin/pkg/adapter/kms"
 )
 
 type KMS struct {
@@ -19,7 +19,7 @@ func (x *KMS) Flags() []cli.Flag {
 			Name:        "kms-key-name",
 			Category:    "KMS",
 			Usage:       "Cloud KMS key that encrypts user tokens of Slack, Google Workspace, Notion, and GitHub (projects/*/locations/*/keyRings/*/cryptoKeys/*)",
-			Sources:     cli.EnvVars("ARIEL_KMS_KEY_NAME"),
+			Sources:     cli.EnvVars("ROBIN_KMS_KEY_NAME"),
 			Destination: &x.keyName,
 		},
 	}

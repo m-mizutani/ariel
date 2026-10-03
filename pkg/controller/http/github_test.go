@@ -12,9 +12,9 @@ import (
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/m-mizutani/gt"
 
-	httpctrl "github.com/m-mizutani/ariel/pkg/controller/http"
-	"github.com/m-mizutani/ariel/pkg/domain/model"
-	"github.com/m-mizutani/ariel/pkg/usecase"
+	httpctrl "github.com/m-mizutani/robin/pkg/controller/http"
+	"github.com/m-mizutani/robin/pkg/domain/model"
+	"github.com/m-mizutani/robin/pkg/usecase"
 )
 
 type githubAuthorize struct {
@@ -88,7 +88,7 @@ func newGitHubTestServer(t *testing.T, authUC *fakeAuthUseCase, githubUC *fakeGi
 	if githubUC != nil {
 		opts = append(opts, httpctrl.WithGitHub(githubUC))
 	}
-	srv, err := httpctrl.New(authUC, httpctrl.Config{BaseURL: "https://ariel.example.com", Static: testStatic}, opts...)
+	srv, err := httpctrl.New(authUC, httpctrl.Config{BaseURL: "https://robin.example.com", Static: testStatic}, opts...)
 	gt.NoError(t, err).Required()
 	return srv
 }
@@ -199,10 +199,10 @@ func TestGitHubConnect(t *testing.T) {
 		gt.Number(t, len(call.CodeVerifier)).Equal(43)
 		gt.Number(t, len(verifier)).Equal(32)
 
-		state := findCookie(resp, "ariel_github_oauth_state")
+		state := findCookie(resp, "robin_github_oauth_state")
 		assertGitHubCookie(t, state)
 		gt.String(t, state.Value).Equal(call.State + "." + string(authUC.session.ID))
-		verifierCookie := findCookie(resp, "ariel_github_oauth_verifier")
+		verifierCookie := findCookie(resp, "robin_github_oauth_verifier")
 		assertGitHubCookie(t, verifierCookie)
 		gt.String(t, verifierCookie.Value).Equal(call.CodeVerifier)
 	})
@@ -216,8 +216,8 @@ func TestGitHubConnect(t *testing.T) {
 		resp := serve(srv, withSession(httptest.NewRequest(http.MethodGet, githubBase+"/connect", nil), authUC))
 		gt.Number(t, resp.StatusCode).Equal(http.StatusFound)
 		gt.String(t, resp.Header.Get("Location")).Equal("/settings")
-		gt.Value(t, findCookie(resp, "ariel_github_oauth_state")).Nil()
-		gt.Value(t, findCookie(resp, "ariel_github_oauth_verifier")).Nil()
+		gt.Value(t, findCookie(resp, "robin_github_oauth_state")).Nil()
+		gt.Value(t, findCookie(resp, "robin_github_oauth_verifier")).Nil()
 	})
 
 	t.Run("usecase error", func(t *testing.T) {
@@ -229,7 +229,7 @@ func TestGitHubConnect(t *testing.T) {
 		resp := serve(srv, withSession(httptest.NewRequest(http.MethodGet, githubBase+"/connect", nil), authUC))
 		gt.Number(t, resp.StatusCode).Equal(http.StatusInternalServerError)
 		gt.Value(t, decodeJSON(t, resp.Body)).Equal(map[string]any{"error": "internal_error"})
-		gt.Value(t, findCookie(resp, "ariel_github_oauth_state")).Nil()
+		gt.Value(t, findCookie(resp, "robin_github_oauth_state")).Nil()
 	})
 
 	t.Run("without session", func(t *testing.T) {
@@ -239,7 +239,7 @@ func TestGitHubConnect(t *testing.T) {
 		resp := serve(srv, httptest.NewRequest(http.MethodGet, githubBase+"/connect", nil))
 		gt.Number(t, resp.StatusCode).Equal(http.StatusFound)
 		gt.String(t, resp.Header.Get("Location")).Equal("/login")
-		gt.Value(t, findCookie(resp, "ariel_github_oauth_state")).Nil()
+		gt.Value(t, findCookie(resp, "robin_github_oauth_state")).Nil()
 		gt.Array(t, githubUC.authorizes).Length(0)
 	})
 }
@@ -247,17 +247,17 @@ func TestGitHubConnect(t *testing.T) {
 func githubCallbackRequest(authUC *fakeAuthUseCase, query, stateCookie, verifierCookie string) *http.Request {
 	r := withSession(httptest.NewRequest(http.MethodGet, githubBase+"/callback?"+query, nil), authUC)
 	if stateCookie != "" {
-		r.AddCookie(&http.Cookie{Name: "ariel_github_oauth_state", Value: stateCookie})
+		r.AddCookie(&http.Cookie{Name: "robin_github_oauth_state", Value: stateCookie})
 	}
 	if verifierCookie != "" {
-		r.AddCookie(&http.Cookie{Name: "ariel_github_oauth_verifier", Value: verifierCookie})
+		r.AddCookie(&http.Cookie{Name: "robin_github_oauth_verifier", Value: verifierCookie})
 	}
 	return r
 }
 
 func assertGitHubCookiesCleared(t *testing.T, resp *http.Response) {
 	t.Helper()
-	for _, name := range []string{"ariel_github_oauth_state", "ariel_github_oauth_verifier"} {
+	for _, name := range []string{"robin_github_oauth_state", "robin_github_oauth_verifier"} {
 		cookie := findCookie(resp, name)
 		gt.Value(t, cookie).NotNil().Required()
 		gt.Bool(t, cookie.MaxAge < 0).True()
@@ -393,7 +393,7 @@ func TestGitHubCallback_WithoutSession(t *testing.T) {
 	srv := newGitHubTestServer(t, newFakeAuthUseCase(), githubUC)
 
 	r := httptest.NewRequest(http.MethodGet, githubBase+"/callback?code=c&state=s1", nil)
-	r.AddCookie(&http.Cookie{Name: "ariel_github_oauth_state", Value: "s1.x"})
+	r.AddCookie(&http.Cookie{Name: "robin_github_oauth_state", Value: "s1.x"})
 	resp := serve(srv, r)
 	gt.Number(t, resp.StatusCode).Equal(http.StatusFound)
 	gt.String(t, resp.Header.Get("Location")).Equal("/login")

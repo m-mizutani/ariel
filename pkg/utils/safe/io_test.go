@@ -10,8 +10,8 @@ import (
 
 	"github.com/m-mizutani/gt"
 
-	"github.com/m-mizutani/ariel/pkg/utils/logging"
-	"github.com/m-mizutani/ariel/pkg/utils/safe"
+	"github.com/m-mizutani/robin/pkg/utils/logging"
+	"github.com/m-mizutani/robin/pkg/utils/safe"
 )
 
 func capturingCtx(t *testing.T) (context.Context, *bytes.Buffer) {

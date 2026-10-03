@@ -3,7 +3,7 @@ package interfaces
 import (
 	"context"
 
-	"github.com/m-mizutani/ariel/pkg/domain/model"
+	"github.com/m-mizutani/robin/pkg/domain/model"
 )
 
 // GitHubOAuth calls the OAuth endpoints of the GitHub App.

@@ -9,16 +9,16 @@ import (
 
 	"github.com/m-mizutani/goerr/v2"
 
-	"github.com/m-mizutani/ariel/pkg/usecase"
-	"github.com/m-mizutani/ariel/pkg/utils/errutil"
+	"github.com/m-mizutani/robin/pkg/usecase"
+	"github.com/m-mizutani/robin/pkg/utils/errutil"
 )
 
 const (
-	githubStateCookieName = "ariel_github_oauth_state"
+	githubStateCookieName = "robin_github_oauth_state"
 	// githubVerifierCookieName holds the PKCE code verifier. It is set and
 	// cleared together with the state cookie, whose format is shared with the
 	// other integrations.
-	githubVerifierCookieName = "ariel_github_oauth_verifier"
+	githubVerifierCookieName = "robin_github_oauth_verifier"
 	githubStateCookiePath    = apiV1Path + "/integrations/github"
 
 	// The settings page reads githubResultParam to tell the user how the

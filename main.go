@@ -4,7 +4,7 @@ import (
 	"context"
 	"os"
 
-	"github.com/m-mizutani/ariel/pkg/cli"
+	"github.com/m-mizutani/robin/pkg/cli"
 )
 
 var version = "dev"

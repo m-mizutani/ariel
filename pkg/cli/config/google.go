@@ -18,14 +18,14 @@ func (x *Google) Flags() []cli.Flag {
 			Name:        "google-client-id",
 			Category:    "Google Workspace",
 			Usage:       "Client ID of the Google OAuth client (Web application) for the Google Workspace integration",
-			Sources:     cli.EnvVars("ARIEL_GOOGLE_CLIENT_ID"),
+			Sources:     cli.EnvVars("ROBIN_GOOGLE_CLIENT_ID"),
 			Destination: &x.clientID,
 		},
 		&cli.StringFlag{
 			Name:        "google-client-secret",
 			Category:    "Google Workspace",
 			Usage:       "Client secret of the Google OAuth client for the Google Workspace integration",
-			Sources:     cli.EnvVars("ARIEL_GOOGLE_CLIENT_SECRET"),
+			Sources:     cli.EnvVars("ROBIN_GOOGLE_CLIENT_SECRET"),
 			Destination: &x.clientSecret,
 		},
 	}

@@ -1,6 +1,6 @@
-// A stand-in for Notion's OAuth endpoints, used by the E2E tests. The ariel
+// A stand-in for Notion's OAuth endpoints, used by the E2E tests. The robin
 // server under test is started with --notion-api-url pointing here, so the
-// browser is sent to this server for authorization and ariel exchanges and
+// browser is sent to this server for authorization and robin exchanges and
 // revokes tokens here.
 //
 // Endpoints:

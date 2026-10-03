@@ -1,5 +1,5 @@
 // Package github wraps the OAuth endpoints of a GitHub App and the parts of
-// the GitHub REST API that Ariel calls with a user access token.
+// the GitHub REST API that Robin calls with a user access token.
 package github
 
 import (
@@ -14,9 +14,9 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/endpoints"
 
-	"github.com/m-mizutani/ariel/pkg/domain/interfaces"
-	"github.com/m-mizutani/ariel/pkg/domain/model"
-	"github.com/m-mizutani/ariel/pkg/utils/safe"
+	"github.com/m-mizutani/robin/pkg/domain/interfaces"
+	"github.com/m-mizutani/robin/pkg/domain/model"
+	"github.com/m-mizutani/robin/pkg/utils/safe"
 )
 
 const (

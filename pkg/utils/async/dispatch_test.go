@@ -12,8 +12,8 @@ import (
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/m-mizutani/gt"
 
-	"github.com/m-mizutani/ariel/pkg/utils/async"
-	"github.com/m-mizutani/ariel/pkg/utils/logging"
+	"github.com/m-mizutani/robin/pkg/utils/async"
+	"github.com/m-mizutani/robin/pkg/utils/logging"
 )
 
 type syncBuffer struct {

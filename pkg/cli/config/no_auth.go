@@ -4,7 +4,7 @@ import (
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/urfave/cli/v3"
 
-	"github.com/m-mizutani/ariel/pkg/domain/model"
+	"github.com/m-mizutani/robin/pkg/domain/model"
 )
 
 // NoAuth turns off Slack authorization for E2E tests and local development:
@@ -20,7 +20,7 @@ func (x *NoAuth) Flags() []cli.Flag {
 			Category: "Development",
 			Usage: "Sign every web login in as this Slack user ID (U...) of --slack-team-id without asking Slack. " +
 				"For E2E tests and local development only; requires --repository-backend memory",
-			Sources:     cli.EnvVars("ARIEL_NO_AUTH"),
+			Sources:     cli.EnvVars("ROBIN_NO_AUTH"),
 			Destination: &x.userID,
 		},
 	}

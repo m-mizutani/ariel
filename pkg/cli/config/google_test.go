@@ -5,11 +5,11 @@ import (
 
 	"github.com/m-mizutani/gt"
 
-	"github.com/m-mizutani/ariel/pkg/cli/config"
+	"github.com/m-mizutani/robin/pkg/cli/config"
 )
 
 func TestGoogle_Validate(t *testing.T) {
-	unsetEnv(t, "ARIEL_GOOGLE_CLIENT_ID", "ARIEL_GOOGLE_CLIENT_SECRET")
+	unsetEnv(t, "ROBIN_GOOGLE_CLIENT_ID", "ROBIN_GOOGLE_CLIENT_SECRET")
 
 	t.Run("both set", func(t *testing.T) {
 		var g config.Google
@@ -43,8 +43,8 @@ func TestGoogle_Validate(t *testing.T) {
 }
 
 func TestGoogle_FromEnv(t *testing.T) {
-	t.Setenv("ARIEL_GOOGLE_CLIENT_ID", "env-client-id")
-	t.Setenv("ARIEL_GOOGLE_CLIENT_SECRET", "env-client-secret")
+	t.Setenv("ROBIN_GOOGLE_CLIENT_ID", "env-client-id")
+	t.Setenv("ROBIN_GOOGLE_CLIENT_SECRET", "env-client-secret")
 
 	var g config.Google
 	parse(t, g.Flags())

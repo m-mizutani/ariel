@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/m-mizutani/ariel/pkg/domain/interfaces"
-	"github.com/m-mizutani/ariel/pkg/domain/model"
+	"github.com/m-mizutani/robin/pkg/domain/interfaces"
+	"github.com/m-mizutani/robin/pkg/domain/model"
 )
 
 // ClientFactory builds Notion API clients for one user's access token.

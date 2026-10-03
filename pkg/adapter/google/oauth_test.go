@@ -13,9 +13,9 @@ import (
 
 	"github.com/m-mizutani/gt"
 
-	"github.com/m-mizutani/ariel/pkg/adapter/google"
-	"github.com/m-mizutani/ariel/pkg/domain/interfaces"
-	"github.com/m-mizutani/ariel/pkg/domain/model"
+	"github.com/m-mizutani/robin/pkg/adapter/google"
+	"github.com/m-mizutani/robin/pkg/domain/interfaces"
+	"github.com/m-mizutani/robin/pkg/domain/model"
 )
 
 type recordedRequest struct {
@@ -77,7 +77,7 @@ func (f *fakeGoogle) oauth() *google.OAuth {
 	return google.NewOAuthForTest("client-id", "client-secret", f.server.URL)
 }
 
-const redirectURI = "https://ariel.example.com/api/v1/integrations/google-workspace/callback"
+const redirectURI = "https://robin.example.com/api/v1/integrations/google-workspace/callback"
 
 var scopes = []string{
 	"openid",

@@ -90,7 +90,7 @@ type NotionCredential struct {
 	NotionUserID   NotionUserID
 	NotionUserName string
 	// NeedsReconnect is set when Notion rejected the refresh token: the user
-	// has to authorize Ariel again.
+	// has to authorize Robin again.
 	NeedsReconnect bool
 	CreatedAt      time.Time
 	UpdatedAt      time.Time

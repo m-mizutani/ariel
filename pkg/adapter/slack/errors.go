@@ -6,7 +6,7 @@ import (
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/slack-go/slack"
 
-	"github.com/m-mizutani/ariel/pkg/domain/interfaces"
+	"github.com/m-mizutani/robin/pkg/domain/interfaces"
 )
 
 // tokenInvalidErrors are the Slack error codes that mean the token can no

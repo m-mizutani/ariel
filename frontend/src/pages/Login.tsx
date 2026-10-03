@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Navigate, useSearchParams } from 'react-router'
 import { startLogin } from '../api'
+import logo from '../assets/robin-logo.png'
 import { useAuth } from '../contexts/auth-context'
 
 function errorMessage(code: string | null): string | null {
@@ -32,10 +33,13 @@ export default function Login() {
   return (
     <main className="page">
       <section className="card">
-        <h1 className="title">Ariel</h1>
-        <p>Sign in with your Slack account to use Ariel. Ariel replies when you mention it in Slack.</p>
+        <div className="brand">
+          <img className="brand-logo" src={logo} alt="Robin logo" width={128} height={128} />
+          <h1 className="title">Robin</h1>
+        </div>
+        <p>Sign in with your Slack account to use Robin. Robin replies when you mention it in Slack.</p>
         <p className="muted">
-          Slack asks you to allow Ariel to search messages as you. Ariel uses this permission only for requests you
+          Slack asks you to allow Robin to search messages as you. Robin uses this permission only for requests you
           make.
         </p>
         {error && (

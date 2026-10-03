@@ -5,8 +5,8 @@ import (
 
 	"github.com/slack-go/slack"
 
-	"github.com/m-mizutani/ariel/pkg/domain/interfaces"
-	"github.com/m-mizutani/ariel/pkg/domain/model"
+	"github.com/m-mizutani/robin/pkg/domain/interfaces"
+	"github.com/m-mizutani/robin/pkg/domain/model"
 )
 
 // UserClientFactory builds Slack clients authenticated with a user token.

@@ -6,8 +6,8 @@ import (
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/slack-go/slack"
 
-	"github.com/m-mizutani/ariel/pkg/domain/interfaces"
-	"github.com/m-mizutani/ariel/pkg/domain/model"
+	"github.com/m-mizutani/robin/pkg/domain/interfaces"
+	"github.com/m-mizutani/robin/pkg/domain/model"
 )
 
 // Bot calls the Slack Web API with the bot token.

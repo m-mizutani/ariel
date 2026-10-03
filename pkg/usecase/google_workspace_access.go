@@ -7,8 +7,8 @@ import (
 
 	"github.com/m-mizutani/goerr/v2"
 
-	"github.com/m-mizutani/ariel/pkg/domain/interfaces"
-	"github.com/m-mizutani/ariel/pkg/domain/model"
+	"github.com/m-mizutani/robin/pkg/domain/interfaces"
+	"github.com/m-mizutani/robin/pkg/domain/model"
 )
 
 // GoogleWorkspaceAccess is the only component that reads or writes Google
@@ -28,7 +28,7 @@ func NewGoogleWorkspaceAccess(repo interfaces.Repository, cipher interfaces.Ciph
 // every stored token undecryptable; bump the version and keep decrypting the
 // old one instead.
 func googleTokenAAD(key model.UserKey) []byte {
-	return []byte("ariel:google-refresh-token:v1:" + string(key.TeamID) + ":" + string(key.UserID))
+	return []byte("robin:google-refresh-token:v1:" + string(key.TeamID) + ":" + string(key.UserID))
 }
 
 // GoogleWorkspaceToken is a decrypted refresh token together with the stored

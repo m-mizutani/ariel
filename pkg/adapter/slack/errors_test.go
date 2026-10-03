@@ -8,8 +8,8 @@ import (
 	"github.com/m-mizutani/gt"
 	slackgo "github.com/slack-go/slack"
 
-	"github.com/m-mizutani/ariel/pkg/adapter/slack"
-	"github.com/m-mizutani/ariel/pkg/domain/interfaces"
+	"github.com/m-mizutani/robin/pkg/adapter/slack"
+	"github.com/m-mizutani/robin/pkg/domain/interfaces"
 )
 
 func TestWrapError(t *testing.T) {

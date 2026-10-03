@@ -11,10 +11,10 @@ import (
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/m-mizutani/gt"
 
-	"github.com/m-mizutani/ariel/pkg/domain/interfaces"
-	"github.com/m-mizutani/ariel/pkg/domain/model"
-	"github.com/m-mizutani/ariel/pkg/repository/memory"
-	"github.com/m-mizutani/ariel/pkg/usecase"
+	"github.com/m-mizutani/robin/pkg/domain/interfaces"
+	"github.com/m-mizutani/robin/pkg/domain/model"
+	"github.com/m-mizutani/robin/pkg/repository/memory"
+	"github.com/m-mizutani/robin/pkg/usecase"
 )
 
 const (
@@ -22,7 +22,7 @@ const (
 	notionAlice       = model.NotionUserID("7b3c1e2d-4f5a-4b6c-9d8e-1f2a3b4c5d6e")
 	notionBob         = model.NotionUserID("8c4d2f3e-5a6b-4c7d-8e9f-2a3b4c5d6e7f")
 	notionPageID      = model.NotionObjectID("0f4a2b1c3d4e4f508a6b7c8d9e0f1a2b")
-	notionCallbackURL = "https://ariel.example.com/api/v1/integrations/notion/callback"
+	notionCallbackURL = "https://robin.example.com/api/v1/integrations/notion/callback"
 )
 
 type notionAuthorizeCall struct {
@@ -30,7 +30,7 @@ type notionAuthorizeCall struct {
 	RedirectURI string
 }
 
-// fakeNotionOAuth returns configured results and records every call Ariel
+// fakeNotionOAuth returns configured results and records every call Robin
 // would make to Notion's OAuth endpoints.
 type fakeNotionOAuth struct {
 	mu            sync.Mutex
@@ -222,7 +222,7 @@ func newNotionFixture() *notionFixture {
 	f.access = usecase.NewNotionAccess(f.repo, f.cipher, f.oauth, f.clients)
 	f.access.SetNowForTest(func() time.Time { return f.now })
 	f.uc = usecase.NewNotionUseCase(f.oauth, f.access, usecase.NotionConfig{
-		BaseURL:     "https://ariel.example.com",
+		BaseURL:     "https://robin.example.com",
 		WorkspaceID: notionWorkspace,
 	})
 	return f
@@ -291,7 +291,7 @@ func TestNotionAccess_StoreEncryptsTokensForTheOwner(t *testing.T) {
 	f.storeTokens(t, firstTokens)
 
 	gt.Array(t, f.cipher.encryptions).Length(1).Required()
-	gt.String(t, string(f.cipher.encryptions[0].AAD)).Equal("ariel:notion-token:v1:T0123ABCD:U0123ABCD")
+	gt.String(t, string(f.cipher.encryptions[0].AAD)).Equal("robin:notion-token:v1:T0123ABCD:U0123ABCD")
 	gt.String(t, string(f.cipher.encryptions[0].Data)).Equal(`{"access_token":"access-1","refresh_token":"refresh-1"}`)
 
 	cred := f.credential(t)

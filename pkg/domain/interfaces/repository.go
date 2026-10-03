@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/m-mizutani/ariel/pkg/domain/model"
-	"github.com/m-mizutani/ariel/pkg/domain/model/auth"
+	"github.com/m-mizutani/robin/pkg/domain/model"
+	"github.com/m-mizutani/robin/pkg/domain/model/auth"
 )
 
 // Repository is the persistence boundary. Every method that reads or writes

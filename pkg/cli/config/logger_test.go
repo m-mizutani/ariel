@@ -5,11 +5,11 @@ import (
 
 	"github.com/m-mizutani/gt"
 
-	"github.com/m-mizutani/ariel/pkg/cli/config"
+	"github.com/m-mizutani/robin/pkg/cli/config"
 )
 
 func TestLogger_Configure(t *testing.T) {
-	unsetEnv(t, "ARIEL_LOG_LEVEL", "ARIEL_LOG_FORMAT")
+	unsetEnv(t, "ROBIN_LOG_LEVEL", "ROBIN_LOG_FORMAT")
 
 	t.Run("defaults", func(t *testing.T) {
 		var l config.Logger

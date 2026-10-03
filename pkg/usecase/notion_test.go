@@ -9,9 +9,9 @@ import (
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/m-mizutani/gt"
 
-	"github.com/m-mizutani/ariel/pkg/domain/interfaces"
-	"github.com/m-mizutani/ariel/pkg/domain/model"
-	"github.com/m-mizutani/ariel/pkg/usecase"
+	"github.com/m-mizutani/robin/pkg/domain/interfaces"
+	"github.com/m-mizutani/robin/pkg/domain/model"
+	"github.com/m-mizutani/robin/pkg/usecase"
 )
 
 func (f *notionFixture) assertNothingStored(t *testing.T) {
@@ -179,7 +179,7 @@ func TestNotionUseCase_ConcurrentCallback(t *testing.T) {
 	wrapped := &storingOAuth{fakeNotionOAuth: f.oauth, beforeExchange: func() {
 		f.storeTokens(t, model.NotionTokens{AccessToken: "other-access", RefreshToken: "other-refresh"})
 	}}
-	uc := usecase.NewNotionUseCase(wrapped, f.access, usecase.NotionConfig{BaseURL: "https://ariel.example.com", WorkspaceID: notionWorkspace})
+	uc := usecase.NewNotionUseCase(wrapped, f.access, usecase.NotionConfig{BaseURL: "https://robin.example.com", WorkspaceID: notionWorkspace})
 
 	err := uc.HandleCallback(ctx, testKey, "code-1")
 	gt.Error(t, err).Is(usecase.ErrNotionAlreadyConnected)

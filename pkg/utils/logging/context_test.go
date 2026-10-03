@@ -8,7 +8,7 @@ import (
 
 	"github.com/m-mizutani/gt"
 
-	"github.com/m-mizutani/ariel/pkg/utils/logging"
+	"github.com/m-mizutani/robin/pkg/utils/logging"
 )
 
 func TestFrom(t *testing.T) {

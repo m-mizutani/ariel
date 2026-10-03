@@ -6,8 +6,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/m-mizutani/ariel/pkg/domain/interfaces"
-	"github.com/m-mizutani/ariel/pkg/domain/model"
+	"github.com/m-mizutani/robin/pkg/domain/interfaces"
+	"github.com/m-mizutani/robin/pkg/domain/model"
 )
 
 // OAuth calls the authorization, token, and revocation endpoints of one Notion

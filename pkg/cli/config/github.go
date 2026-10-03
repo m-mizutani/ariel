@@ -18,14 +18,14 @@ func (x *GitHub) Flags() []cli.Flag {
 			Name:        "github-client-id",
 			Category:    "GitHub",
 			Usage:       "Client ID of the GitHub App for the GitHub integration (Iv...)",
-			Sources:     cli.EnvVars("ARIEL_GITHUB_CLIENT_ID"),
+			Sources:     cli.EnvVars("ROBIN_GITHUB_CLIENT_ID"),
 			Destination: &x.clientID,
 		},
 		&cli.StringFlag{
 			Name:        "github-client-secret",
 			Category:    "GitHub",
 			Usage:       "Client secret of the GitHub App for the GitHub integration",
-			Sources:     cli.EnvVars("ARIEL_GITHUB_CLIENT_SECRET"),
+			Sources:     cli.EnvVars("ROBIN_GITHUB_CLIENT_SECRET"),
 			Destination: &x.clientSecret,
 		},
 	}

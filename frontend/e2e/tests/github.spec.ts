@@ -3,7 +3,7 @@ import { e2eGitHubClientID, e2eUserID } from '../../playwright.e2e.config'
 
 // GitHub connection use cases against the real server, started with a GitHub
 // App that does not exist. The browser is stopped before it reaches
-// github.com, so these tests cover everything Ariel does before and after
+// github.com, so these tests cover everything Robin does before and after
 // GitHub: starting the authorization, the state and PKCE cookies, and every
 // callback that does not need a real authorization code. The connected state
 // needs GitHub and is covered by unit tests and screenshots.
@@ -92,8 +92,8 @@ test('connecting sends the browser to GitHub with the configured app and a PKCE 
   expect(q.get('allow_signup')).toBe('false')
   expect(q.get('state')).toBeTruthy()
 
-  const state = setCookies.find((c) => c.startsWith('ariel_github_oauth_state='))
-  const verifier = setCookies.find((c) => c.startsWith('ariel_github_oauth_verifier='))
+  const state = setCookies.find((c) => c.startsWith('robin_github_oauth_state='))
+  const verifier = setCookies.find((c) => c.startsWith('robin_github_oauth_verifier='))
   for (const cookie of [state, verifier]) {
     expect(cookie).toBeDefined()
     expect(cookie).toContain('Path=/api/v1/integrations/github')
@@ -101,8 +101,8 @@ test('connecting sends the browser to GitHub with the configured app and a PKCE 
     expect(cookie).toContain('SameSite=Lax')
     expect(cookie).toContain('Max-Age=600')
   }
-  expect(state!.startsWith(`ariel_github_oauth_state=${q.get('state')}.`)).toBe(true)
-  expect(verifier).toMatch(/^ariel_github_oauth_verifier=[A-Za-z0-9_-]{43};/)
+  expect(state!.startsWith(`robin_github_oauth_state=${q.get('state')}.`)).toBe(true)
+  expect(verifier).toMatch(/^robin_github_oauth_verifier=[A-Za-z0-9_-]{43};/)
 })
 
 test('cancelling on GitHub returns to the settings page with a message', async ({ page, context }) => {
@@ -112,8 +112,8 @@ test('cancelling on GitHub returns to the settings page with a message', async (
   await expect(page).toHaveURL('/api/v1/integrations/github/connect')
   const state = connect()!.location.searchParams.get('state')
   const names = (await context.cookies()).map((c) => c.name)
-  expect(names).toContain('ariel_github_oauth_state')
-  expect(names).toContain('ariel_github_oauth_verifier')
+  expect(names).toContain('robin_github_oauth_state')
+  expect(names).toContain('robin_github_oauth_verifier')
 
   await page.goto(`/api/v1/integrations/github/callback?error=access_denied&state=${state}`)
 
@@ -121,8 +121,8 @@ test('cancelling on GitHub returns to the settings page with a message', async (
   await expect(page).toHaveURL('/settings')
   await expect(githubRow(page).getByText('Not connected')).toBeVisible()
   const remaining = (await context.cookies()).map((c) => c.name)
-  expect(remaining).not.toContain('ariel_github_oauth_state')
-  expect(remaining).not.toContain('ariel_github_oauth_verifier')
+  expect(remaining).not.toContain('robin_github_oauth_state')
+  expect(remaining).not.toContain('robin_github_oauth_verifier')
 })
 
 test('a callback that this browser did not start is rejected', async ({ page }) => {

@@ -10,7 +10,7 @@ export default defineConfig({
   reporter: 'list',
   use: {
     ...devices['Desktop Chrome'],
-    baseURL: 'http://ariel.test',
+    baseURL: 'http://robin.test',
     viewport: { width: 1024, height: 640 },
   },
 })

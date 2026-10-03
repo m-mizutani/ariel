@@ -7,7 +7,7 @@ import (
 
 	"github.com/m-mizutani/gt"
 
-	"github.com/m-mizutani/ariel/pkg/adapter/kms"
+	"github.com/m-mizutani/robin/pkg/adapter/kms"
 )
 
 func TestValidateKeyName(t *testing.T) {
@@ -45,7 +45,7 @@ func TestClient_RoundTrip(t *testing.T) {
 	gt.NoError(t, err).Required()
 	t.Cleanup(func() { gt.NoError(t, client.Close()) })
 
-	aad := []byte("ariel:slack-user-token:v1:T0123ABCD:U0123ABCD")
+	aad := []byte("robin:slack-user-token:v1:T0123ABCD:U0123ABCD")
 	encrypted, err := client.Encrypt(ctx, []byte("xoxp-test-token"), aad)
 	gt.NoError(t, err).Required()
 	gt.String(t, encrypted.KeyName).Equal(keyName)
@@ -55,6 +55,6 @@ func TestClient_RoundTrip(t *testing.T) {
 	gt.NoError(t, err).Required()
 	gt.Value(t, plaintext).Equal([]byte("xoxp-test-token"))
 
-	_, err = client.Decrypt(ctx, encrypted, []byte("ariel:slack-user-token:v1:T0123ABCD:U9999ZZZZ"))
+	_, err = client.Decrypt(ctx, encrypted, []byte("robin:slack-user-token:v1:T0123ABCD:U9999ZZZZ"))
 	gt.Value(t, err).NotNil()
 }

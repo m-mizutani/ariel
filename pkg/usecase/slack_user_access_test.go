@@ -12,11 +12,11 @@ import (
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/m-mizutani/gt"
 
-	"github.com/m-mizutani/ariel/pkg/adapter/kms"
-	"github.com/m-mizutani/ariel/pkg/domain/interfaces"
-	"github.com/m-mizutani/ariel/pkg/domain/model"
-	"github.com/m-mizutani/ariel/pkg/repository/memory"
-	"github.com/m-mizutani/ariel/pkg/usecase"
+	"github.com/m-mizutani/robin/pkg/adapter/kms"
+	"github.com/m-mizutani/robin/pkg/domain/interfaces"
+	"github.com/m-mizutani/robin/pkg/domain/model"
+	"github.com/m-mizutani/robin/pkg/repository/memory"
+	"github.com/m-mizutani/robin/pkg/usecase"
 )
 
 const testKeyName = "projects/p/locations/l/keyRings/r/cryptoKeys/k"
@@ -193,7 +193,7 @@ func TestSlackUserAccess_StoreAndClient(t *testing.T) {
 	gt.Bool(t, cred.UpdatedAt.Equal(now)).True()
 	gt.Array(t, cipher.encryptions).Length(1).Required()
 	gt.Value(t, cipher.encryptions[0].AAD).Equal(usecase.TokenAADForTest(testKey))
-	gt.String(t, string(cipher.encryptions[0].AAD)).Equal("ariel:slack-user-token:v1:T0123ABCD:U0123ABCD")
+	gt.String(t, string(cipher.encryptions[0].AAD)).Equal("robin:slack-user-token:v1:T0123ABCD:U0123ABCD")
 
 	_, err = access.Client(ctx, testKey)
 	gt.NoError(t, err).Required()

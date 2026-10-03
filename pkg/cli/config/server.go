@@ -22,14 +22,14 @@ func (x *Server) Flags() []cli.Flag {
 			Category:    "Server",
 			Usage:       "Address the HTTP server listens on",
 			Value:       ":8080",
-			Sources:     cli.EnvVars("ARIEL_ADDR"),
+			Sources:     cli.EnvVars("ROBIN_ADDR"),
 			Destination: &x.addr,
 		},
 		&cli.StringFlag{
 			Name:        "base-url",
 			Category:    "Server",
 			Usage:       "Public URL of this server (scheme://host[:port]), used for the OAuth callback, links in Slack, and the Secure cookie attribute",
-			Sources:     cli.EnvVars("ARIEL_BASE_URL"),
+			Sources:     cli.EnvVars("ROBIN_BASE_URL"),
 			Destination: &x.baseURL,
 		},
 		&cli.DurationFlag{
@@ -37,7 +37,7 @@ func (x *Server) Flags() []cli.Flag {
 			Category:    "Server",
 			Usage:       "Lifetime of a web session",
 			Value:       7 * 24 * time.Hour,
-			Sources:     cli.EnvVars("ARIEL_SESSION_TTL"),
+			Sources:     cli.EnvVars("ROBIN_SESSION_TTL"),
 			Destination: &x.sessionTTL,
 		},
 	}

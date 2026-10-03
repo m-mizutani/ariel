@@ -5,11 +5,11 @@ import (
 
 	"github.com/m-mizutani/gt"
 
-	"github.com/m-mizutani/ariel/pkg/cli/config"
+	"github.com/m-mizutani/robin/pkg/cli/config"
 )
 
 func TestGitHub_Validate(t *testing.T) {
-	unsetEnv(t, "ARIEL_GITHUB_CLIENT_ID", "ARIEL_GITHUB_CLIENT_SECRET")
+	unsetEnv(t, "ROBIN_GITHUB_CLIENT_ID", "ROBIN_GITHUB_CLIENT_SECRET")
 
 	t.Run("both set", func(t *testing.T) {
 		var g config.GitHub
@@ -43,8 +43,8 @@ func TestGitHub_Validate(t *testing.T) {
 }
 
 func TestGitHub_FromEnv(t *testing.T) {
-	t.Setenv("ARIEL_GITHUB_CLIENT_ID", "Iv1.env")
-	t.Setenv("ARIEL_GITHUB_CLIENT_SECRET", "env-client-secret")
+	t.Setenv("ROBIN_GITHUB_CLIENT_ID", "Iv1.env")
+	t.Setenv("ROBIN_GITHUB_CLIENT_SECRET", "env-client-secret")
 
 	var g config.GitHub
 	parse(t, g.Flags())

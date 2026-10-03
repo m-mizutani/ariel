@@ -27,21 +27,21 @@ export type GoogleWorkspaceState = ServiceState<GoogleWorkspaceStatus>
 export type NotionState = ServiceState<NotionStatus>
 export type GitHubState = ServiceState<GitHubStatus>
 
-const unavailableDescription = 'Your Ariel administrator has not set up this integration.'
-const slackDescription = 'When you mention @ariel in a Slack channel, Ariel replies in the thread.'
-const slackConnectedNote = 'You sign in to Ariel with Slack, so you cannot disconnect Slack on this page.'
+const unavailableDescription = 'Your Robin administrator has not set up this integration.'
+const slackDescription = 'When you mention @robin in a Slack channel, Robin replies in the thread.'
+const slackConnectedNote = 'You sign in to Robin with Slack, so you cannot disconnect Slack on this page.'
 const googleDescription =
-  'Gives Ariel read-only access to your Google Calendar, Gmail, and Drive files, including Docs, Sheets, and Slides. ' +
-  'No Ariel feature uses this access yet. Ariel cannot create, change, or send anything.'
+  'Gives Robin read-only access to your Google Calendar, Gmail, and Drive files, including Docs, Sheets, and Slides. ' +
+  'No Robin feature uses this access yet. Robin cannot create, change, or send anything.'
 const notionDescription =
-  'Gives Ariel read-only access to the Notion pages and databases you share with it. ' +
-  'No Ariel feature uses this access yet. Ariel cannot create or change anything.'
+  'Gives Robin read-only access to the Notion pages and databases you share with it. ' +
+  'No Robin feature uses this access yet. Robin cannot create or change anything.'
 const notionReconnectDescription =
-  'Ariel can no longer access your Notion pages. Reconnect Notion to give Ariel access again.'
+  'Robin can no longer access your Notion pages. Reconnect Notion to give Robin access again.'
 const githubDescription =
-  'Gives Ariel read-only access to the repositories, issues, pull requests, and other GitHub content your GitHub account can see, ' +
-  'in organizations where the Ariel GitHub App is installed. ' +
-  'No Ariel feature uses this access yet. Ariel cannot create or change anything.'
+  'Gives Robin read-only access to the repositories, issues, pull requests, and other GitHub content your GitHub account can see, ' +
+  'in organizations where the Robin GitHub App is installed. ' +
+  'No Robin feature uses this access yet. Robin cannot create or change anything.'
 
 function googleWorkspace(google: GoogleWorkspaceState): Integration {
   const base = { id: 'google_workspace', name: 'Google Workspace', description: googleDescription } as const

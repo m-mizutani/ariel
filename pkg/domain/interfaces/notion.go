@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/m-mizutani/ariel/pkg/domain/model"
+	"github.com/m-mizutani/robin/pkg/domain/model"
 )
 
 // NotionOAuth talks to the OAuth endpoints of a Notion public integration.
