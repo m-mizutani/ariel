@@ -10,8 +10,8 @@ import (
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/m-mizutani/gt"
 
-	"github.com/m-mizutani/ariel/pkg/adapter/notion"
-	"github.com/m-mizutani/ariel/pkg/domain/interfaces"
+	"github.com/m-mizutani/robin/pkg/adapter/notion"
+	"github.com/m-mizutani/robin/pkg/domain/interfaces"
 )
 
 // notionError is an error body of Notion. Its message stands for text that

@@ -11,8 +11,8 @@ import (
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/m-mizutani/gt"
 
-	"github.com/m-mizutani/ariel/pkg/utils/errutil"
-	"github.com/m-mizutani/ariel/pkg/utils/logging"
+	"github.com/m-mizutani/robin/pkg/utils/errutil"
+	"github.com/m-mizutani/robin/pkg/utils/logging"
 )
 
 func capturingCtx(t *testing.T) (context.Context, *bytes.Buffer) {

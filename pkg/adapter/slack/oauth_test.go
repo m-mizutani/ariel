@@ -7,8 +7,8 @@ import (
 	"github.com/m-mizutani/gt"
 	slackgo "github.com/slack-go/slack"
 
-	"github.com/m-mizutani/ariel/pkg/adapter/slack"
-	"github.com/m-mizutani/ariel/pkg/domain/model"
+	"github.com/m-mizutani/robin/pkg/adapter/slack"
+	"github.com/m-mizutani/robin/pkg/domain/model"
 )
 
 func TestOAuth_ExchangeCode(t *testing.T) {
@@ -27,7 +27,7 @@ func TestOAuth_ExchangeCode(t *testing.T) {
 	})
 	oauth := slack.NewOAuth("client-id", "client-secret", slackgo.OAuthOptionAPIURL(fake.apiURL()))
 
-	got, err := oauth.ExchangeCode(context.Background(), "auth-code", "https://ariel.example.com/api/auth/callback")
+	got, err := oauth.ExchangeCode(context.Background(), "auth-code", "https://robin.example.com/api/auth/callback")
 	gt.NoError(t, err).Required()
 	gt.Value(t, got.TeamID).Equal(model.SlackTeamID("T0123ABCD"))
 	gt.Value(t, got.UserID).Equal(model.SlackUserID("U0123ABCD"))
@@ -40,7 +40,7 @@ func TestOAuth_ExchangeCode(t *testing.T) {
 	gt.String(t, reqs[0].Form.Get("client_id")).Equal("client-id")
 	gt.String(t, reqs[0].Form.Get("client_secret")).Equal("client-secret")
 	gt.String(t, reqs[0].Form.Get("code")).Equal("auth-code")
-	gt.String(t, reqs[0].Form.Get("redirect_uri")).Equal("https://ariel.example.com/api/auth/callback")
+	gt.String(t, reqs[0].Form.Get("redirect_uri")).Equal("https://robin.example.com/api/auth/callback")
 }
 
 func TestOAuth_ExchangeCodeError(t *testing.T) {
@@ -49,6 +49,6 @@ func TestOAuth_ExchangeCodeError(t *testing.T) {
 	})
 	oauth := slack.NewOAuth("client-id", "client-secret", slackgo.OAuthOptionAPIURL(fake.apiURL()))
 
-	_, err := oauth.ExchangeCode(context.Background(), "bad-code", "https://ariel.example.com/api/auth/callback")
+	_, err := oauth.ExchangeCode(context.Background(), "bad-code", "https://robin.example.com/api/auth/callback")
 	gt.Value(t, err).NotNil()
 }

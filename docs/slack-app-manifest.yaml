@@ -1,21 +1,21 @@
-# Slack app manifest for Ariel.
+# Slack app manifest for Robin.
 #
-# Replace ariel.example.com with the public URL of your server (the value of
-# ARIEL_BASE_URL), then create the app at https://api.slack.com/apps with
+# Replace robin.example.com with the public URL of your server (the value of
+# ROBIN_BASE_URL), then create the app at https://api.slack.com/apps with
 # "Create New App" -> "From an app manifest". See docs/setup.md.
 _metadata:
   major_version: 2
   minor_version: 1
 display_information:
-  name: Ariel
+  name: Robin
   description: An AI agent that works in Slack and on the web.
 features:
   bot_user:
-    display_name: ariel
+    display_name: robin
     always_online: true
 oauth_config:
   redirect_urls:
-    - https://ariel.example.com/api/v1/auth/callback
+    - https://robin.example.com/api/v1/auth/callback
   scopes:
     bot:
       # Receive app_mention events.
@@ -30,11 +30,11 @@ oauth_config:
       - search:read
 settings:
   event_subscriptions:
-    request_url: https://ariel.example.com/hooks/slack/event
+    request_url: https://robin.example.com/hooks/slack/event
     bot_events:
       - app_mention
   org_deploy_enabled: false
   socket_mode_enabled: false
-  # Ariel stores long-lived user tokens. Token rotation cannot be turned off
+  # Robin stores long-lived user tokens. Token rotation cannot be turned off
   # once enabled, so keep it disabled.
   token_rotation_enabled: false

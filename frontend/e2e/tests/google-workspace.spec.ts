@@ -3,7 +3,7 @@ import { e2eGoogleClientID, e2eUserID } from '../../playwright.e2e.config'
 
 // Google Workspace connection use cases against the real server, started with
 // a Google OAuth client that does not exist. The browser is stopped before it
-// reaches accounts.google.com, so these tests cover everything Ariel does before and
+// reaches accounts.google.com, so these tests cover everything Robin does before and
 // after Google: starting the authorization, the state cookie, and every
 // callback that does not need a real authorization code. The connected state
 // needs Google and is covered by unit tests and screenshots.
@@ -73,7 +73,7 @@ test('connecting sends the browser to Google with the configured client and scop
   expect(q.get('prompt')).toBe('consent')
   expect(q.get('state')).toBeTruthy()
 
-  const cookie = (await context.cookies()).find((c) => c.name === 'ariel_google_oauth_state')
+  const cookie = (await context.cookies()).find((c) => c.name === 'robin_google_oauth_state')
   expect(cookie).toBeDefined()
   expect(cookie!.httpOnly).toBe(true)
   expect(cookie!.sameSite).toBe('Lax')
@@ -87,7 +87,7 @@ test('cancelling on Google returns to the settings page with a message', async (
   await googleRow(page).getByRole('button', { name: 'Connect Google Workspace' }).click()
   await expect(page).toHaveURL('/api/v1/integrations/google-workspace/connect')
   const state = googleURL()!.searchParams.get('state')
-  expect((await context.cookies()).map((c) => c.name)).toContain('ariel_google_oauth_state')
+  expect((await context.cookies()).map((c) => c.name)).toContain('robin_google_oauth_state')
 
   await page.goto(`/api/v1/integrations/google-workspace/callback?error=access_denied&state=${state}`)
 
@@ -97,7 +97,7 @@ test('cancelling on Google returns to the settings page with a message', async (
   await expect(page).toHaveURL('/settings')
   await expect(googleRow(page).getByText('Not connected')).toBeVisible()
   const names = (await context.cookies()).map((c) => c.name)
-  expect(names).not.toContain('ariel_google_oauth_state')
+  expect(names).not.toContain('robin_google_oauth_state')
 })
 
 test('a callback that this browser did not start is rejected', async ({ page }) => {

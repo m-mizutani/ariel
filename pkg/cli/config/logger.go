@@ -7,7 +7,7 @@ import (
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/urfave/cli/v3"
 
-	"github.com/m-mizutani/ariel/pkg/utils/logging"
+	"github.com/m-mizutani/robin/pkg/utils/logging"
 )
 
 type Logger struct {
@@ -22,7 +22,7 @@ func (x *Logger) Flags() []cli.Flag {
 			Category:    "Logging",
 			Usage:       "Log level [debug|info|warn|error]",
 			Value:       "info",
-			Sources:     cli.EnvVars("ARIEL_LOG_LEVEL"),
+			Sources:     cli.EnvVars("ROBIN_LOG_LEVEL"),
 			Destination: &x.level,
 		},
 		&cli.StringFlag{
@@ -30,7 +30,7 @@ func (x *Logger) Flags() []cli.Flag {
 			Category:    "Logging",
 			Usage:       "Log format [console|json]",
 			Value:       "console",
-			Sources:     cli.EnvVars("ARIEL_LOG_FORMAT"),
+			Sources:     cli.EnvVars("ROBIN_LOG_FORMAT"),
 			Destination: &x.format,
 		},
 	}

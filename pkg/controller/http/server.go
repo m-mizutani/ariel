@@ -12,11 +12,11 @@ import (
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/slack-go/slack/slackevents"
 
-	"github.com/m-mizutani/ariel/frontend"
-	"github.com/m-mizutani/ariel/pkg/domain/model"
-	"github.com/m-mizutani/ariel/pkg/domain/model/auth"
-	"github.com/m-mizutani/ariel/pkg/usecase"
-	"github.com/m-mizutani/ariel/pkg/utils/safe"
+	"github.com/m-mizutani/robin/frontend"
+	"github.com/m-mizutani/robin/pkg/domain/model"
+	"github.com/m-mizutani/robin/pkg/domain/model/auth"
+	"github.com/m-mizutani/robin/pkg/usecase"
+	"github.com/m-mizutani/robin/pkg/utils/safe"
 )
 
 type authUseCase interface {

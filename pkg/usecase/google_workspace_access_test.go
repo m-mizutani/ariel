@@ -10,11 +10,11 @@ import (
 
 	"github.com/m-mizutani/gt"
 
-	"github.com/m-mizutani/ariel/pkg/adapter/kms"
-	"github.com/m-mizutani/ariel/pkg/domain/interfaces"
-	"github.com/m-mizutani/ariel/pkg/domain/model"
-	"github.com/m-mizutani/ariel/pkg/repository/memory"
-	"github.com/m-mizutani/ariel/pkg/usecase"
+	"github.com/m-mizutani/robin/pkg/adapter/kms"
+	"github.com/m-mizutani/robin/pkg/domain/interfaces"
+	"github.com/m-mizutani/robin/pkg/domain/model"
+	"github.com/m-mizutani/robin/pkg/repository/memory"
+	"github.com/m-mizutani/robin/pkg/usecase"
 )
 
 var (
@@ -48,7 +48,7 @@ func TestGoogleWorkspaceAccess_StoreAndToken(t *testing.T) {
 	gt.Bool(t, cred.UpdatedAt.Equal(now)).True()
 	gt.Array(t, cipher.encryptions).Length(1).Required()
 	gt.Value(t, cipher.encryptions[0].AAD).Equal(usecase.GoogleTokenAADForTest(testKey))
-	gt.String(t, string(cipher.encryptions[0].AAD)).Equal("ariel:google-refresh-token:v1:T0123ABCD:U0123ABCD")
+	gt.String(t, string(cipher.encryptions[0].AAD)).Equal("robin:google-refresh-token:v1:T0123ABCD:U0123ABCD")
 
 	token, err := access.Token(ctx, testKey)
 	gt.NoError(t, err).Required()

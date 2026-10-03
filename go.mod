@@ -1,4 +1,4 @@
-module github.com/m-mizutani/ariel
+module github.com/m-mizutani/robin
 
 go 1.27.1
 

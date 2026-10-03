@@ -6,10 +6,10 @@ import (
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/urfave/cli/v3"
 
-	"github.com/m-mizutani/ariel/pkg/domain/interfaces"
-	"github.com/m-mizutani/ariel/pkg/repository/firestore"
-	"github.com/m-mizutani/ariel/pkg/repository/memory"
-	"github.com/m-mizutani/ariel/pkg/utils/logging"
+	"github.com/m-mizutani/robin/pkg/domain/interfaces"
+	"github.com/m-mizutani/robin/pkg/repository/firestore"
+	"github.com/m-mizutani/robin/pkg/repository/memory"
+	"github.com/m-mizutani/robin/pkg/utils/logging"
 )
 
 const (
@@ -30,21 +30,21 @@ func (x *Repository) Flags() []cli.Flag {
 			Category:    "Repository",
 			Usage:       "Repository backend [firestore|memory]. memory keeps data in this process only.",
 			Value:       backendFirestore,
-			Sources:     cli.EnvVars("ARIEL_REPOSITORY_BACKEND"),
+			Sources:     cli.EnvVars("ROBIN_REPOSITORY_BACKEND"),
 			Destination: &x.backend,
 		},
 		&cli.StringFlag{
 			Name:        "firestore-project-id",
 			Category:    "Repository",
 			Usage:       "Google Cloud project ID of Firestore (required for the firestore backend)",
-			Sources:     cli.EnvVars("ARIEL_FIRESTORE_PROJECT_ID"),
+			Sources:     cli.EnvVars("ROBIN_FIRESTORE_PROJECT_ID"),
 			Destination: &x.projectID,
 		},
 		&cli.StringFlag{
 			Name:        "firestore-database-id",
 			Category:    "Repository",
 			Usage:       "Firestore database ID (empty selects the (default) database)",
-			Sources:     cli.EnvVars("ARIEL_FIRESTORE_DATABASE_ID"),
+			Sources:     cli.EnvVars("ROBIN_FIRESTORE_DATABASE_ID"),
 			Destination: &x.databaseID,
 		},
 	}

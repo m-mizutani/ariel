@@ -9,8 +9,8 @@ import (
 
 	"github.com/m-mizutani/goerr/v2"
 
-	"github.com/m-mizutani/ariel/pkg/domain/model/auth"
-	"github.com/m-mizutani/ariel/pkg/utils/errutil"
+	"github.com/m-mizutani/robin/pkg/domain/model/auth"
+	"github.com/m-mizutani/robin/pkg/utils/errutil"
 )
 
 const (
@@ -19,11 +19,11 @@ const (
 	apiV1Path = "/api/v1"
 	authPath  = apiV1Path + "/auth"
 
-	stateCookieName         = "ariel_oauth_state"
+	stateCookieName         = "robin_oauth_state"
 	stateCookiePath         = authPath
 	stateCookieMaxAge       = 600
-	sessionIDCookieName     = "ariel_session_id"
-	sessionSecretCookieName = "ariel_session_secret"
+	sessionIDCookieName     = "robin_session_id"
+	sessionSecretCookieName = "robin_session_secret"
 
 	loginErrorAccessDenied = "access_denied"
 	loginErrorFailed       = "login_failed"

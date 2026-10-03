@@ -3,7 +3,7 @@ package interfaces
 import (
 	"context"
 
-	"github.com/m-mizutani/ariel/pkg/domain/model"
+	"github.com/m-mizutani/robin/pkg/domain/model"
 )
 
 // GoogleOAuth talks to Google's OAuth 2.0 and OpenID Connect endpoints.

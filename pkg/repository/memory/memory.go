@@ -4,7 +4,7 @@
 package memory
 
 import (
-	"github.com/m-mizutani/ariel/pkg/domain/interfaces"
+	"github.com/m-mizutani/robin/pkg/domain/interfaces"
 )
 
 type Memory struct {

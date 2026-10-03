@@ -11,9 +11,9 @@ import (
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/m-mizutani/gt"
 
-	httpctrl "github.com/m-mizutani/ariel/pkg/controller/http"
-	"github.com/m-mizutani/ariel/pkg/domain/model"
-	"github.com/m-mizutani/ariel/pkg/usecase"
+	httpctrl "github.com/m-mizutani/robin/pkg/controller/http"
+	"github.com/m-mizutani/robin/pkg/domain/model"
+	"github.com/m-mizutani/robin/pkg/usecase"
 )
 
 type googleCallback struct {
@@ -86,7 +86,7 @@ func newGoogleTestServer(t *testing.T, authUC *fakeAuthUseCase, googleUC *fakeGo
 	if googleUC != nil {
 		opts = append(opts, httpctrl.WithGoogleWorkspace(googleUC))
 	}
-	srv, err := httpctrl.New(authUC, httpctrl.Config{BaseURL: "https://ariel.example.com", Static: testStatic}, opts...)
+	srv, err := httpctrl.New(authUC, httpctrl.Config{BaseURL: "https://robin.example.com", Static: testStatic}, opts...)
 	gt.NoError(t, err).Required()
 	return srv
 }
@@ -187,7 +187,7 @@ func TestGoogleConnect(t *testing.T) {
 		gt.String(t, state).NotEqual("")
 		gt.String(t, resp.Header.Get("Location")).Equal("https://accounts.google.com/o/oauth2/v2/auth?client_id=x&state=" + state)
 
-		cookie := findCookie(resp, "ariel_google_oauth_state")
+		cookie := findCookie(resp, "robin_google_oauth_state")
 		gt.Value(t, cookie).NotNil().Required()
 		gt.String(t, cookie.Value).Equal(state + "." + string(authUC.session.ID))
 		gt.String(t, cookie.Path).Equal("/api/v1/integrations/google-workspace")
@@ -207,7 +207,7 @@ func TestGoogleConnect(t *testing.T) {
 		resp := serve(srv, withSession(httptest.NewRequest(http.MethodGet, googleBase+"/connect", nil), authUC))
 		gt.Number(t, resp.StatusCode).Equal(http.StatusFound)
 		gt.String(t, resp.Header.Get("Location")).Equal("/settings")
-		gt.Value(t, findCookie(resp, "ariel_google_oauth_state")).Nil()
+		gt.Value(t, findCookie(resp, "robin_google_oauth_state")).Nil()
 	})
 
 	t.Run("usecase error", func(t *testing.T) {
@@ -219,7 +219,7 @@ func TestGoogleConnect(t *testing.T) {
 		resp := serve(srv, withSession(httptest.NewRequest(http.MethodGet, googleBase+"/connect", nil), authUC))
 		gt.Number(t, resp.StatusCode).Equal(http.StatusInternalServerError)
 		gt.Value(t, decodeJSON(t, resp.Body)).Equal(map[string]any{"error": "internal_error"})
-		gt.Value(t, findCookie(resp, "ariel_google_oauth_state")).Nil()
+		gt.Value(t, findCookie(resp, "robin_google_oauth_state")).Nil()
 	})
 
 	t.Run("without session", func(t *testing.T) {
@@ -229,7 +229,7 @@ func TestGoogleConnect(t *testing.T) {
 		resp := serve(srv, httptest.NewRequest(http.MethodGet, googleBase+"/connect", nil))
 		gt.Number(t, resp.StatusCode).Equal(http.StatusFound)
 		gt.String(t, resp.Header.Get("Location")).Equal("/login")
-		gt.Value(t, findCookie(resp, "ariel_google_oauth_state")).Nil()
+		gt.Value(t, findCookie(resp, "robin_google_oauth_state")).Nil()
 		gt.Array(t, googleUC.states).Length(0)
 	})
 }
@@ -237,7 +237,7 @@ func TestGoogleConnect(t *testing.T) {
 func googleCallbackRequest(authUC *fakeAuthUseCase, query, stateCookie string) *http.Request {
 	r := withSession(httptest.NewRequest(http.MethodGet, googleBase+"/callback?"+query, nil), authUC)
 	if stateCookie != "" {
-		r.AddCookie(&http.Cookie{Name: "ariel_google_oauth_state", Value: stateCookie})
+		r.AddCookie(&http.Cookie{Name: "robin_google_oauth_state", Value: stateCookie})
 	}
 	return r
 }
@@ -252,7 +252,7 @@ func TestGoogleCallback_Success(t *testing.T) {
 	gt.String(t, resp.Header.Get("Location")).Equal("/settings?google_workspace=connected")
 	gt.Value(t, googleUC.callbacks).Equal([]googleCallback{{Key: sessionKey, Code: "c1"}})
 
-	state := findCookie(resp, "ariel_google_oauth_state")
+	state := findCookie(resp, "robin_google_oauth_state")
 	gt.Value(t, state).NotNil().Required()
 	gt.Bool(t, state.MaxAge < 0).True()
 	gt.String(t, state.Path).Equal("/api/v1/integrations/google-workspace")
@@ -361,7 +361,7 @@ func TestGoogleCallback_Failures(t *testing.T) {
 			gt.String(t, resp.Header.Get("Location")).Equal("/settings?google_workspace=" + tc.wantResult)
 			gt.Value(t, len(googleUC.callbacks) > 0).Equal(tc.wantCalled)
 
-			state := findCookie(resp, "ariel_google_oauth_state")
+			state := findCookie(resp, "robin_google_oauth_state")
 			gt.Value(t, state).NotNil().Required()
 			gt.Bool(t, state.MaxAge < 0).True()
 		})
@@ -387,7 +387,7 @@ func TestGoogleCallback_WithoutSession(t *testing.T) {
 	srv := newGoogleTestServer(t, newFakeAuthUseCase(), googleUC)
 
 	r := httptest.NewRequest(http.MethodGet, googleBase+"/callback?code=c&state=s1", nil)
-	r.AddCookie(&http.Cookie{Name: "ariel_google_oauth_state", Value: "s1.x"})
+	r.AddCookie(&http.Cookie{Name: "robin_google_oauth_state", Value: "s1.x"})
 	resp := serve(srv, r)
 	gt.Number(t, resp.StatusCode).Equal(http.StatusFound)
 	gt.String(t, resp.Header.Get("Location")).Equal("/login")

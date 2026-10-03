@@ -14,8 +14,8 @@ import (
 	"github.com/m-mizutani/gt"
 	"github.com/slack-go/slack/slackevents"
 
-	httpctrl "github.com/m-mizutani/ariel/pkg/controller/http"
-	"github.com/m-mizutani/ariel/pkg/utils/async"
+	httpctrl "github.com/m-mizutani/robin/pkg/controller/http"
+	"github.com/m-mizutani/robin/pkg/utils/async"
 )
 
 func sign(secret, timestamp, body string) string {
@@ -79,7 +79,7 @@ func TestSlackEvent_Rejected(t *testing.T) {
 	for name, build := range cases {
 		t.Run(name, func(t *testing.T) {
 			slackUC := &fakeSlackEventUseCase{}
-			srv := newTestServer(t, "https://ariel.example.com", newFakeAuthUseCase(), slackUC)
+			srv := newTestServer(t, "https://robin.example.com", newFakeAuthUseCase(), slackUC)
 
 			w := httptest.NewRecorder()
 			srv.ServeHTTP(w, build())
@@ -93,7 +93,7 @@ func TestSlackEvent_Rejected(t *testing.T) {
 
 func TestSlackEvent_URLVerification(t *testing.T) {
 	slackUC := &fakeSlackEventUseCase{}
-	srv := newTestServer(t, "https://ariel.example.com", newFakeAuthUseCase(), slackUC)
+	srv := newTestServer(t, "https://robin.example.com", newFakeAuthUseCase(), slackUC)
 
 	w := httptest.NewRecorder()
 	srv.ServeHTTP(w, signedRequest(`{"type":"url_verification","token":"x","challenge":"challenge-value"}`, time.Now()))
@@ -106,7 +106,7 @@ func TestSlackEvent_URLVerification(t *testing.T) {
 
 func TestSlackEvent_CallbackIsDispatched(t *testing.T) {
 	slackUC := &fakeSlackEventUseCase{}
-	srv := newTestServer(t, "https://ariel.example.com", newFakeAuthUseCase(), slackUC)
+	srv := newTestServer(t, "https://robin.example.com", newFakeAuthUseCase(), slackUC)
 	body := `{"type":"event_callback","team_id":"T0123ABCD","event_id":"Ev001","event":{"type":"app_mention","user":"U0123ABCD","text":"hi","ts":"1700000000.000100","channel":"C0123ABCD","event_ts":"1700000000.000100"}}`
 
 	w := httptest.NewRecorder()
@@ -128,7 +128,7 @@ func TestSlackEvent_CallbackIsDispatched(t *testing.T) {
 
 func TestSlackEvent_InvalidJSON(t *testing.T) {
 	slackUC := &fakeSlackEventUseCase{}
-	srv := newTestServer(t, "https://ariel.example.com", newFakeAuthUseCase(), slackUC)
+	srv := newTestServer(t, "https://robin.example.com", newFakeAuthUseCase(), slackUC)
 
 	w := httptest.NewRecorder()
 	srv.ServeHTTP(w, signedRequest(`{not json`, time.Now()))
@@ -140,7 +140,7 @@ func TestSlackEvent_InvalidJSON(t *testing.T) {
 
 func TestSlackEvent_BodyTooLarge(t *testing.T) {
 	slackUC := &fakeSlackEventUseCase{}
-	srv := newTestServer(t, "https://ariel.example.com", newFakeAuthUseCase(), slackUC)
+	srv := newTestServer(t, "https://robin.example.com", newFakeAuthUseCase(), slackUC)
 
 	body := `{"type":"event_callback","padding":"` + strings.Repeat("a", 1<<20) + `"}`
 	w := httptest.NewRecorder()

@@ -7,12 +7,12 @@ import (
 
 	"github.com/m-mizutani/goerr/v2"
 
-	"github.com/m-mizutani/ariel/pkg/usecase"
-	"github.com/m-mizutani/ariel/pkg/utils/errutil"
+	"github.com/m-mizutani/robin/pkg/usecase"
+	"github.com/m-mizutani/robin/pkg/utils/errutil"
 )
 
 const (
-	notionStateCookieName = "ariel_notion_oauth_state"
+	notionStateCookieName = "robin_notion_oauth_state"
 	notionStateCookiePath = apiV1Path + "/integrations/notion"
 
 	// The settings page reads notionResultParam to tell the user how the

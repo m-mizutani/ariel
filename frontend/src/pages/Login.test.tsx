@@ -35,6 +35,11 @@ describe('Login', () => {
     expect(screen.queryByRole('alert')).toBeNull()
   })
 
+  it('shows the Robin logo', async () => {
+    renderLogin('/login')
+    expect(await screen.findByRole('img', { name: 'Robin logo' })).toBeInTheDocument()
+  })
+
   it('explains a cancelled sign-in', async () => {
     renderLogin('/login?error=access_denied')
     expect(await screen.findByRole('alert')).toHaveTextContent('Sign-in was cancelled.')

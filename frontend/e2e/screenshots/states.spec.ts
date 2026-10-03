@@ -19,7 +19,7 @@ const contentTypes: Record<string, string> = {
 // index.html otherwise. Tests register their API mocks afterwards, and
 // Playwright tries the most recently registered route first.
 test.beforeEach(async ({ page }) => {
-  await page.route('http://ariel.test/**', async (route) => {
+  await page.route('http://robin.test/**', async (route) => {
     const path = new URL(route.request().url()).pathname
     if (path.startsWith('/api/')) {
       await route.fulfill({ status: 404, contentType: 'application/json', body: '{"error":"not_found"}' })
@@ -288,7 +288,7 @@ for (const [result, name, text] of [
   ['connected', 'settings-google-notice-connected', 'Google Workspace is connected.'],
   ['access_denied', 'settings-google-notice-access-denied', 'you cancelled the request on Google'],
   ['missing_scope', 'settings-google-notice-missing-scope', 'you did not allow every requested permission'],
-  ['account_in_use', 'settings-google-notice-account-in-use', 'already connected to another Ariel user'],
+  ['account_in_use', 'settings-google-notice-account-in-use', 'already connected to another Robin user'],
   ['failed', 'settings-google-notice-failed', 'Could not connect Google Workspace.'],
 ] as const) {
   test(`settings: Google Workspace connection result ${result}`, async ({ page }) => {
@@ -380,7 +380,7 @@ test('settings: Notion needs to be reconnected', async ({ page }) => {
 for (const [result, name, text] of [
   ['connected', 'settings-notion-notice-connected', 'Notion is connected.'],
   ['access_denied', 'settings-notion-notice-access-denied', 'you cancelled the request on Notion'],
-  ['wrong_workspace', 'settings-notion-notice-wrong-workspace', 'the workspace you chose is not the one Ariel is set up for'],
+  ['wrong_workspace', 'settings-notion-notice-wrong-workspace', 'the workspace you chose is not the one Robin is set up for'],
   ['account_in_use', 'settings-notion-notice-account-in-use', 'this Notion account is already connected'],
   ['failed', 'settings-notion-notice-failed', 'Could not connect Notion.'],
 ] as const) {
@@ -466,7 +466,7 @@ test('settings: disconnecting GitHub failed', async ({ page }) => {
 for (const [result, name, text] of [
   ['connected', 'settings-github-notice-connected', 'GitHub is connected.'],
   ['access_denied', 'settings-github-notice-access-denied', 'you cancelled the request on GitHub'],
-  ['account_in_use', 'settings-github-notice-account-in-use', 'already connected to another Ariel user'],
+  ['account_in_use', 'settings-github-notice-account-in-use', 'already connected to another Robin user'],
   ['failed', 'settings-github-notice-failed', 'Could not connect GitHub.'],
 ] as const) {
   test(`settings: GitHub connection result ${result}`, async ({ page }) => {

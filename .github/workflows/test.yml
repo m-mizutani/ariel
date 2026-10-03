@@ -91,7 +91,7 @@ jobs:
       - name: Build the frontend and the server
         run: |
           (cd frontend && pnpm install --frozen-lockfile && pnpm build)
-          go build -o ariel .
+          go build -o robin .
 
       - name: Install the Playwright browser
         working-directory: frontend

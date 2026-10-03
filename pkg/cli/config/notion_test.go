@@ -5,11 +5,11 @@ import (
 
 	"github.com/m-mizutani/gt"
 
-	"github.com/m-mizutani/ariel/pkg/cli/config"
-	"github.com/m-mizutani/ariel/pkg/domain/model"
+	"github.com/m-mizutani/robin/pkg/cli/config"
+	"github.com/m-mizutani/robin/pkg/domain/model"
 )
 
-var notionEnv = []string{"ARIEL_NOTION_CLIENT_ID", "ARIEL_NOTION_CLIENT_SECRET", "ARIEL_NOTION_WORKSPACE_ID", "ARIEL_NOTION_API_URL"}
+var notionEnv = []string{"ROBIN_NOTION_CLIENT_ID", "ROBIN_NOTION_CLIENT_SECRET", "ROBIN_NOTION_WORKSPACE_ID", "ROBIN_NOTION_API_URL"}
 
 func notionArgs() []string {
 	return []string{
@@ -86,10 +86,10 @@ func TestNotion_Validate(t *testing.T) {
 }
 
 func TestNotion_FromEnv(t *testing.T) {
-	t.Setenv("ARIEL_NOTION_CLIENT_ID", "env-client-id")
-	t.Setenv("ARIEL_NOTION_CLIENT_SECRET", "env-client-secret")
-	t.Setenv("ARIEL_NOTION_WORKSPACE_ID", "0f4a2b1c-3d4e-4f50-8a6b-7c8d9e0f1a2b")
-	t.Setenv("ARIEL_NOTION_API_URL", "http://127.0.0.1:18082")
+	t.Setenv("ROBIN_NOTION_CLIENT_ID", "env-client-id")
+	t.Setenv("ROBIN_NOTION_CLIENT_SECRET", "env-client-secret")
+	t.Setenv("ROBIN_NOTION_WORKSPACE_ID", "0f4a2b1c-3d4e-4f50-8a6b-7c8d9e0f1a2b")
+	t.Setenv("ROBIN_NOTION_API_URL", "http://127.0.0.1:18082")
 
 	var n config.Notion
 	parse(t, n.Flags())

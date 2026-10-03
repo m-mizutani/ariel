@@ -6,8 +6,8 @@ import (
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/urfave/cli/v3"
 
-	"github.com/m-mizutani/ariel/pkg/cli/config"
-	"github.com/m-mizutani/ariel/pkg/utils/errutil"
+	"github.com/m-mizutani/robin/pkg/cli/config"
+	"github.com/m-mizutani/robin/pkg/utils/errutil"
 )
 
 // Run executes the command line. An error that stops the command is recorded
@@ -16,7 +16,7 @@ func Run(ctx context.Context, args []string, version string) error {
 	var logger config.Logger
 
 	app := &cli.Command{
-		Name:    "ariel",
+		Name:    "robin",
 		Usage:   "AI agent that works as a Slack bot and a web UI",
 		Version: version,
 		Flags:   logger.Flags(),

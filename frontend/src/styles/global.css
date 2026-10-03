@@ -78,6 +78,19 @@ body {
   font-size: 1.5rem;
 }
 
+.brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.brand-logo {
+  display: block;
+  width: 8rem;
+  height: 8rem;
+}
+
 .card h2 {
   margin: 0;
   font-size: 1.125rem;

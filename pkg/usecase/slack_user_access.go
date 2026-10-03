@@ -7,8 +7,8 @@ import (
 
 	"github.com/m-mizutani/goerr/v2"
 
-	"github.com/m-mizutani/ariel/pkg/domain/interfaces"
-	"github.com/m-mizutani/ariel/pkg/domain/model"
+	"github.com/m-mizutani/robin/pkg/domain/interfaces"
+	"github.com/m-mizutani/robin/pkg/domain/model"
 )
 
 // SlackUserAccess is the only component that reads or writes Slack user
@@ -30,7 +30,7 @@ func NewSlackUserAccess(repo interfaces.Repository, cipher interfaces.Cipher, fa
 // every stored token undecryptable; bump the version and keep decrypting the
 // old one instead.
 func tokenAAD(key model.UserKey) []byte {
-	return []byte("ariel:slack-user-token:v1:" + string(key.TeamID) + ":" + string(key.UserID))
+	return []byte("robin:slack-user-token:v1:" + string(key.TeamID) + ":" + string(key.UserID))
 }
 
 // Store encrypts token and saves it with the granted scopes, keeping the

@@ -7,7 +7,7 @@ import (
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/urfave/cli/v3"
 
-	"github.com/m-mizutani/ariel/pkg/domain/model"
+	"github.com/m-mizutani/robin/pkg/domain/model"
 )
 
 const defaultNotionAPIURL = "https://api.notion.com"
@@ -28,21 +28,21 @@ func (x *Notion) Flags() []cli.Flag {
 			Name:        "notion-client-id",
 			Category:    "Notion",
 			Usage:       "OAuth client ID of the Notion public integration",
-			Sources:     cli.EnvVars("ARIEL_NOTION_CLIENT_ID"),
+			Sources:     cli.EnvVars("ROBIN_NOTION_CLIENT_ID"),
 			Destination: &x.clientID,
 		},
 		&cli.StringFlag{
 			Name:        "notion-client-secret",
 			Category:    "Notion",
 			Usage:       "OAuth client secret of the Notion public integration",
-			Sources:     cli.EnvVars("ARIEL_NOTION_CLIENT_SECRET"),
+			Sources:     cli.EnvVars("ROBIN_NOTION_CLIENT_SECRET"),
 			Destination: &x.clientSecret,
 		},
 		&cli.StringFlag{
 			Name:        "notion-workspace-id",
 			Category:    "Notion",
 			Usage:       "ID of the only Notion workspace users can connect (a UUID)",
-			Sources:     cli.EnvVars("ARIEL_NOTION_WORKSPACE_ID"),
+			Sources:     cli.EnvVars("ROBIN_NOTION_WORKSPACE_ID"),
 			Destination: &x.workspaceID,
 		},
 		&cli.StringFlag{
@@ -50,7 +50,7 @@ func (x *Notion) Flags() []cli.Flag {
 			Category:    "Development",
 			Usage:       "Origin of the Notion API. Values other than the default are accepted only with --no-auth",
 			Value:       defaultNotionAPIURL,
-			Sources:     cli.EnvVars("ARIEL_NOTION_API_URL"),
+			Sources:     cli.EnvVars("ROBIN_NOTION_API_URL"),
 			Destination: &x.apiURL,
 		},
 	}

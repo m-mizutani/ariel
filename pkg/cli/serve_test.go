@@ -7,7 +7,7 @@ import (
 
 	"github.com/m-mizutani/gt"
 
-	"github.com/m-mizutani/ariel/pkg/cli"
+	"github.com/m-mizutani/robin/pkg/cli"
 )
 
 func clearServeEnv(t *testing.T) {
@@ -15,13 +15,13 @@ func clearServeEnv(t *testing.T) {
 	// Unset rather than set to "": urfave/cli takes an empty variable as the
 	// flag value and skips the default.
 	for _, name := range []string{
-		"ARIEL_ADDR", "ARIEL_BASE_URL", "ARIEL_SESSION_TTL", "ARIEL_LOG_LEVEL", "ARIEL_LOG_FORMAT",
-		"ARIEL_REPOSITORY_BACKEND", "ARIEL_FIRESTORE_PROJECT_ID", "ARIEL_FIRESTORE_DATABASE_ID",
-		"ARIEL_SLACK_CLIENT_ID", "ARIEL_SLACK_CLIENT_SECRET", "ARIEL_SLACK_SIGNING_SECRET",
-		"ARIEL_SLACK_BOT_TOKEN", "ARIEL_SLACK_TEAM_ID", "ARIEL_KMS_KEY_NAME", "ARIEL_NO_AUTH",
-		"ARIEL_GOOGLE_CLIENT_ID", "ARIEL_GOOGLE_CLIENT_SECRET",
-		"ARIEL_NOTION_CLIENT_ID", "ARIEL_NOTION_CLIENT_SECRET", "ARIEL_NOTION_WORKSPACE_ID", "ARIEL_NOTION_API_URL",
-		"ARIEL_GITHUB_CLIENT_ID", "ARIEL_GITHUB_CLIENT_SECRET",
+		"ROBIN_ADDR", "ROBIN_BASE_URL", "ROBIN_SESSION_TTL", "ROBIN_LOG_LEVEL", "ROBIN_LOG_FORMAT",
+		"ROBIN_REPOSITORY_BACKEND", "ROBIN_FIRESTORE_PROJECT_ID", "ROBIN_FIRESTORE_DATABASE_ID",
+		"ROBIN_SLACK_CLIENT_ID", "ROBIN_SLACK_CLIENT_SECRET", "ROBIN_SLACK_SIGNING_SECRET",
+		"ROBIN_SLACK_BOT_TOKEN", "ROBIN_SLACK_TEAM_ID", "ROBIN_KMS_KEY_NAME", "ROBIN_NO_AUTH",
+		"ROBIN_GOOGLE_CLIENT_ID", "ROBIN_GOOGLE_CLIENT_SECRET",
+		"ROBIN_NOTION_CLIENT_ID", "ROBIN_NOTION_CLIENT_SECRET", "ROBIN_NOTION_WORKSPACE_ID", "ROBIN_NOTION_API_URL",
+		"ROBIN_GITHUB_CLIENT_ID", "ROBIN_GITHUB_CLIENT_SECRET",
 	} {
 		t.Setenv(name, "")
 		gt.NoError(t, os.Unsetenv(name)).Required()
@@ -30,8 +30,8 @@ func clearServeEnv(t *testing.T) {
 
 func validServeArgs() []string {
 	return []string{
-		"ariel", "--log-format", "json", "serve",
-		"--base-url", "https://ariel.example.com",
+		"robin", "--log-format", "json", "serve",
+		"--base-url", "https://robin.example.com",
 		"--repository-backend", "memory",
 		"--slack-client-id", "client-id",
 		"--slack-client-secret", "client-secret",
@@ -86,7 +86,7 @@ func TestServe_FirestoreRequiresProjectID(t *testing.T) {
 func TestServe_NoAuthRequiresMemoryBackend(t *testing.T) {
 	clearServeEnv(t)
 	args := []string{
-		"ariel", "--log-format", "json", "serve",
+		"robin", "--log-format", "json", "serve",
 		"--base-url", "http://localhost:8080",
 		"--repository-backend", "firestore", "--firestore-project-id", "my-project",
 		"--slack-team-id", "T0123ABCD",
@@ -100,7 +100,7 @@ func TestServe_NoAuthRequiresMemoryBackend(t *testing.T) {
 func TestServe_NoAuthNeedsTeamID(t *testing.T) {
 	clearServeEnv(t)
 	args := []string{
-		"ariel", "--log-format", "json", "serve",
+		"robin", "--log-format", "json", "serve",
 		"--base-url", "http://localhost:8080",
 		"--repository-backend", "memory",
 		"--no-auth", "U0E2ETEST",
@@ -112,7 +112,7 @@ func TestServe_NoAuthNeedsTeamID(t *testing.T) {
 
 func noAuthGoogleArgs() []string {
 	return []string{
-		"ariel", "--log-format", "json", "serve",
+		"robin", "--log-format", "json", "serve",
 		// An address that cannot be listened on stops the server right after
 		// the configuration has been validated and assembled.
 		"--addr", "127.0.0.1:-1",
@@ -209,6 +209,6 @@ func TestServe_GitHubNeedsBothFlags(t *testing.T) {
 
 func TestRun_InvalidLogLevel(t *testing.T) {
 	clearServeEnv(t)
-	err := cli.Run(context.Background(), []string{"ariel", "--log-level", "verbose", "serve"}, "test")
+	err := cli.Run(context.Background(), []string{"robin", "--log-level", "verbose", "serve"}, "test")
 	gt.Value(t, err).NotNil()
 }

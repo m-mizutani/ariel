@@ -11,7 +11,7 @@ import (
 	"github.com/m-mizutani/gt"
 	slackgo "github.com/slack-go/slack"
 
-	"github.com/m-mizutani/ariel/pkg/adapter/slack"
+	"github.com/m-mizutani/robin/pkg/adapter/slack"
 )
 
 type recordedRequest struct {

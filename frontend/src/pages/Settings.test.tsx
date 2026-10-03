@@ -280,7 +280,7 @@ describe('Settings: Google Workspace', () => {
 
     const google = await row('Google Workspace')
     expect(await google.findByText('Not available')).toBeInTheDocument()
-    expect(google.getByText('Your Ariel administrator has not set up this integration.')).toBeInTheDocument()
+    expect(google.getByText('Your Robin administrator has not set up this integration.')).toBeInTheDocument()
     expect(google.queryByRole('button')).toBeNull()
   })
 
@@ -365,7 +365,7 @@ describe('Settings: Google Workspace', () => {
     [
       'account_in_use',
       'alert',
-      'Google Workspace was not connected because this Google account is already connected to another Ariel user. Connect a different Google account.',
+      'Google Workspace was not connected because this Google account is already connected to another Robin user. Connect a different Google account.',
     ],
     ['failed', 'alert', 'Could not connect Google Workspace. Try again.'],
   ])('shows the result %s and removes it from the URL', async (result, role, text) => {
@@ -446,7 +446,7 @@ describe('Settings: Notion', () => {
 
     const notion = await row('Notion')
     expect(await notion.findByText('Not available')).toBeInTheDocument()
-    expect(notion.getByText('Your Ariel administrator has not set up this integration.')).toBeInTheDocument()
+    expect(notion.getByText('Your Robin administrator has not set up this integration.')).toBeInTheDocument()
     expect(notion.queryByRole('button')).toBeNull()
   })
 
@@ -458,7 +458,7 @@ describe('Settings: Notion', () => {
     expect(await notion.findByText('Not connected')).toBeInTheDocument()
     expect(
       notion.getByText(
-        'Gives Ariel read-only access to the Notion pages and databases you share with it. No Ariel feature uses this access yet. Ariel cannot create or change anything.',
+        'Gives Robin read-only access to the Notion pages and databases you share with it. No Robin feature uses this access yet. Robin cannot create or change anything.',
       ),
     ).toBeInTheDocument()
 
@@ -524,7 +524,7 @@ describe('Settings: Notion', () => {
     await waitFor(() => expect(notion.getByRole('button', { name: 'Disconnect Notion' })).toBeEnabled())
   })
 
-  it('asks to reconnect when Ariel can no longer access Notion', async () => {
+  it('asks to reconnect when Robin can no longer access Notion', async () => {
     stubNotion(ok(notionStatus({ connected: true, needs_reconnect: true, user_name: 'Alice Example', workspace_name: 'Acme' })))
     renderSettings()
 
@@ -532,7 +532,7 @@ describe('Settings: Notion', () => {
     expect(await notion.findByText('Reconnect required')).toBeInTheDocument()
     expect(notion.getByText('Account: Alice Example (Acme)')).toBeInTheDocument()
     expect(
-      notion.getByText('Ariel can no longer access your Notion pages. Reconnect Notion to give Ariel access again.'),
+      notion.getByText('Robin can no longer access your Notion pages. Reconnect Notion to give Robin access again.'),
     ).toBeInTheDocument()
     expect(notion.getByRole('button', { name: 'Disconnect Notion' })).toBeEnabled()
 
@@ -547,12 +547,12 @@ describe('Settings: Notion', () => {
     [
       'wrong_workspace',
       'alert',
-      'Notion was not connected because the workspace you chose is not the one Ariel is set up for. Ask your Ariel administrator which workspace to use.',
+      'Notion was not connected because the workspace you chose is not the one Robin is set up for. Ask your Robin administrator which workspace to use.',
     ],
     [
       'account_in_use',
       'alert',
-      'Notion was not connected because this Notion account is already connected to another Ariel user. Connect a different Notion account.',
+      'Notion was not connected because this Notion account is already connected to another Robin user. Connect a different Notion account.',
     ],
     ['failed', 'alert', 'Could not connect Notion. Try again.'],
   ])('shows the result %s and removes it from the URL', async (result, role, text) => {
@@ -635,7 +635,7 @@ describe('Settings: GitHub', () => {
 
     const github = await row('GitHub')
     expect(await github.findByText('Not available')).toBeInTheDocument()
-    expect(github.getByText('Your Ariel administrator has not set up this integration.')).toBeInTheDocument()
+    expect(github.getByText('Your Robin administrator has not set up this integration.')).toBeInTheDocument()
     expect(github.queryByRole('button')).toBeNull()
   })
 
@@ -718,7 +718,7 @@ describe('Settings: GitHub', () => {
     [
       'account_in_use',
       'alert',
-      'GitHub was not connected because this GitHub account is already connected to another Ariel user. Connect a different GitHub account.',
+      'GitHub was not connected because this GitHub account is already connected to another Robin user. Connect a different GitHub account.',
     ],
     ['failed', 'alert', 'Could not connect GitHub. Try again.'],
   ])('shows the result %s and removes it from the URL', async (result, role, text) => {

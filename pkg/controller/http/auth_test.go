@@ -25,7 +25,7 @@ func TestAuthLogin(t *testing.T) {
 		baseURL    string
 		wantSecure bool
 	}{
-		{baseURL: "https://ariel.example.com", wantSecure: true},
+		{baseURL: "https://robin.example.com", wantSecure: true},
 		{baseURL: "http://localhost:8080", wantSecure: false},
 	} {
 		t.Run(tc.baseURL, func(t *testing.T) {
@@ -41,7 +41,7 @@ func TestAuthLogin(t *testing.T) {
 			gt.NoError(t, err).Required()
 			gt.Bool(t, strings.HasPrefix(location.String(), "https://slack.com/oauth/v2/authorize?")).True()
 
-			cookie := findCookie(resp, "ariel_oauth_state")
+			cookie := findCookie(resp, "robin_oauth_state")
 			gt.Value(t, cookie).NotNil().Required()
 			gt.String(t, cookie.Value).NotEqual("")
 			gt.String(t, location.Query().Get("state")).Equal(cookie.Value)
@@ -58,14 +58,14 @@ func TestAuthLogin(t *testing.T) {
 func callbackRequest(query, stateCookie string) *http.Request {
 	r := httptest.NewRequest(http.MethodGet, "/api/v1/auth/callback?"+query, nil)
 	if stateCookie != "" {
-		r.AddCookie(&http.Cookie{Name: "ariel_oauth_state", Value: stateCookie})
+		r.AddCookie(&http.Cookie{Name: "robin_oauth_state", Value: stateCookie})
 	}
 	return r
 }
 
 func TestAuthCallback_Success(t *testing.T) {
 	authUC := newFakeAuthUseCase()
-	srv := newTestServer(t, "https://ariel.example.com", authUC, &fakeSlackEventUseCase{})
+	srv := newTestServer(t, "https://robin.example.com", authUC, &fakeSlackEventUseCase{})
 
 	w := httptest.NewRecorder()
 	srv.ServeHTTP(w, callbackRequest("code=auth-code&state=s1", "s1"))
@@ -75,7 +75,7 @@ func TestAuthCallback_Success(t *testing.T) {
 	gt.String(t, resp.Header.Get("Location")).Equal("/settings")
 	gt.Value(t, authUC.callbackCodes).Equal([]string{"auth-code"})
 
-	id := findCookie(resp, "ariel_session_id")
+	id := findCookie(resp, "robin_session_id")
 	gt.Value(t, id).NotNil().Required()
 	gt.String(t, id.Value).Equal(string(authUC.session.ID))
 	gt.Bool(t, id.Expires.Equal(authUC.session.ExpiresAt)).True()
@@ -83,19 +83,19 @@ func TestAuthCallback_Success(t *testing.T) {
 	gt.Bool(t, id.Secure).True()
 	gt.String(t, id.Path).Equal("/")
 
-	secret := findCookie(resp, "ariel_session_secret")
+	secret := findCookie(resp, "robin_session_secret")
 	gt.Value(t, secret).NotNil().Required()
 	gt.String(t, secret.Value).Equal(string(authUC.secret))
 	gt.Bool(t, secret.Expires.Equal(authUC.session.ExpiresAt)).True()
 
-	state := findCookie(resp, "ariel_oauth_state")
+	state := findCookie(resp, "robin_oauth_state")
 	gt.Value(t, state).NotNil().Required()
 	gt.Bool(t, state.MaxAge < 0).True()
 }
 
 func TestAuthCallback_RedirectIgnoresRequest(t *testing.T) {
 	authUC := newFakeAuthUseCase()
-	srv := newTestServer(t, "https://ariel.example.com", authUC, &fakeSlackEventUseCase{})
+	srv := newTestServer(t, "https://robin.example.com", authUC, &fakeSlackEventUseCase{})
 
 	r := callbackRequest("code=auth-code&state=s1&next=https%3A%2F%2Fevil.example%2F&redirect_uri=%2F%2Fevil.example", "s1")
 	r.Header.Set("Referer", "https://evil.example/")
@@ -105,7 +105,7 @@ func TestAuthCallback_RedirectIgnoresRequest(t *testing.T) {
 
 	gt.Number(t, resp.StatusCode).Equal(http.StatusFound)
 	gt.String(t, resp.Header.Get("Location")).Equal("/settings")
-	gt.Value(t, findCookie(resp, "ariel_session_id")).NotNil()
+	gt.Value(t, findCookie(resp, "robin_session_id")).NotNil()
 }
 
 func TestAuthCallback_Failures(t *testing.T) {
@@ -128,7 +128,7 @@ func TestAuthCallback_Failures(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			authUC := newFakeAuthUseCase()
 			authUC.callbackErr = tc.callbackErr
-			srv := newTestServer(t, "https://ariel.example.com", authUC, &fakeSlackEventUseCase{})
+			srv := newTestServer(t, "https://robin.example.com", authUC, &fakeSlackEventUseCase{})
 
 			w := httptest.NewRecorder()
 			srv.ServeHTTP(w, callbackRequest(tc.query, tc.stateCookie))
@@ -136,9 +136,9 @@ func TestAuthCallback_Failures(t *testing.T) {
 
 			gt.Number(t, resp.StatusCode).Equal(http.StatusFound)
 			gt.String(t, resp.Header.Get("Location")).Equal("/login?error=" + tc.wantError)
-			gt.Value(t, findCookie(resp, "ariel_session_id")).Nil()
-			gt.Value(t, findCookie(resp, "ariel_session_secret")).Nil()
-			state := findCookie(resp, "ariel_oauth_state")
+			gt.Value(t, findCookie(resp, "robin_session_id")).Nil()
+			gt.Value(t, findCookie(resp, "robin_session_secret")).Nil()
+			state := findCookie(resp, "robin_oauth_state")
 			gt.Value(t, state).NotNil().Required()
 			gt.Bool(t, state.MaxAge < 0).True()
 			gt.Value(t, len(authUC.callbackCodes) > 0).Equal(tc.wantCalled)
@@ -147,15 +147,15 @@ func TestAuthCallback_Failures(t *testing.T) {
 }
 
 func withSession(r *http.Request, authUC *fakeAuthUseCase) *http.Request {
-	r.AddCookie(&http.Cookie{Name: "ariel_session_id", Value: string(authUC.session.ID)})
-	r.AddCookie(&http.Cookie{Name: "ariel_session_secret", Value: string(authUC.secret)})
+	r.AddCookie(&http.Cookie{Name: "robin_session_id", Value: string(authUC.session.ID)})
+	r.AddCookie(&http.Cookie{Name: "robin_session_secret", Value: string(authUC.secret)})
 	return r
 }
 
 func TestAuthMe(t *testing.T) {
 	t.Run("authenticated", func(t *testing.T) {
 		authUC := newFakeAuthUseCase()
-		srv := newTestServer(t, "https://ariel.example.com", authUC, &fakeSlackEventUseCase{})
+		srv := newTestServer(t, "https://robin.example.com", authUC, &fakeSlackEventUseCase{})
 
 		w := httptest.NewRecorder()
 		srv.ServeHTTP(w, withSession(httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil), authUC))
@@ -171,7 +171,7 @@ func TestAuthMe(t *testing.T) {
 	})
 
 	t.Run("no cookie", func(t *testing.T) {
-		srv := newTestServer(t, "https://ariel.example.com", newFakeAuthUseCase(), &fakeSlackEventUseCase{})
+		srv := newTestServer(t, "https://robin.example.com", newFakeAuthUseCase(), &fakeSlackEventUseCase{})
 		w := httptest.NewRecorder()
 		srv.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil))
 
@@ -181,10 +181,10 @@ func TestAuthMe(t *testing.T) {
 
 	t.Run("wrong secret", func(t *testing.T) {
 		authUC := newFakeAuthUseCase()
-		srv := newTestServer(t, "https://ariel.example.com", authUC, &fakeSlackEventUseCase{})
+		srv := newTestServer(t, "https://robin.example.com", authUC, &fakeSlackEventUseCase{})
 		r := httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
-		r.AddCookie(&http.Cookie{Name: "ariel_session_id", Value: string(authUC.session.ID)})
-		r.AddCookie(&http.Cookie{Name: "ariel_session_secret", Value: "wrong"})
+		r.AddCookie(&http.Cookie{Name: "robin_session_id", Value: string(authUC.session.ID)})
+		r.AddCookie(&http.Cookie{Name: "robin_session_secret", Value: "wrong"})
 
 		w := httptest.NewRecorder()
 		srv.ServeHTTP(w, r)
@@ -195,7 +195,7 @@ func TestAuthMe(t *testing.T) {
 	t.Run("authentication backend error", func(t *testing.T) {
 		authUC := newFakeAuthUseCase()
 		authUC.authErr = errors.New("firestore unavailable")
-		srv := newTestServer(t, "https://ariel.example.com", authUC, &fakeSlackEventUseCase{})
+		srv := newTestServer(t, "https://robin.example.com", authUC, &fakeSlackEventUseCase{})
 
 		w := httptest.NewRecorder()
 		srv.ServeHTTP(w, withSession(httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil), authUC))
@@ -206,7 +206,7 @@ func TestAuthMe(t *testing.T) {
 	t.Run("me error", func(t *testing.T) {
 		authUC := newFakeAuthUseCase()
 		authUC.meErr = errors.New("firestore unavailable")
-		srv := newTestServer(t, "https://ariel.example.com", authUC, &fakeSlackEventUseCase{})
+		srv := newTestServer(t, "https://robin.example.com", authUC, &fakeSlackEventUseCase{})
 
 		w := httptest.NewRecorder()
 		srv.ServeHTTP(w, withSession(httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil), authUC))
@@ -217,7 +217,7 @@ func TestAuthMe(t *testing.T) {
 
 func assertSessionCookiesCleared(t *testing.T, resp *http.Response) {
 	t.Helper()
-	for _, name := range []string{"ariel_session_id", "ariel_session_secret"} {
+	for _, name := range []string{"robin_session_id", "robin_session_secret"} {
 		c := findCookie(resp, name)
 		gt.Value(t, c).NotNil().Required()
 		gt.Bool(t, c.MaxAge < 0).True()
@@ -227,7 +227,7 @@ func assertSessionCookiesCleared(t *testing.T, resp *http.Response) {
 func TestAuthLogout(t *testing.T) {
 	t.Run("with session", func(t *testing.T) {
 		authUC := newFakeAuthUseCase()
-		srv := newTestServer(t, "https://ariel.example.com", authUC, &fakeSlackEventUseCase{})
+		srv := newTestServer(t, "https://robin.example.com", authUC, &fakeSlackEventUseCase{})
 
 		w := httptest.NewRecorder()
 		srv.ServeHTTP(w, withSession(httptest.NewRequest(http.MethodPost, "/api/v1/auth/logout", nil), authUC))
@@ -243,7 +243,7 @@ func TestAuthLogout(t *testing.T) {
 
 	t.Run("without session", func(t *testing.T) {
 		authUC := newFakeAuthUseCase()
-		srv := newTestServer(t, "https://ariel.example.com", authUC, &fakeSlackEventUseCase{})
+		srv := newTestServer(t, "https://robin.example.com", authUC, &fakeSlackEventUseCase{})
 
 		w := httptest.NewRecorder()
 		srv.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/v1/auth/logout", nil))
@@ -257,7 +257,7 @@ func TestAuthLogout(t *testing.T) {
 	t.Run("logout error", func(t *testing.T) {
 		authUC := newFakeAuthUseCase()
 		authUC.logoutErr = errors.New("firestore unavailable")
-		srv := newTestServer(t, "https://ariel.example.com", authUC, &fakeSlackEventUseCase{})
+		srv := newTestServer(t, "https://robin.example.com", authUC, &fakeSlackEventUseCase{})
 
 		w := httptest.NewRecorder()
 		srv.ServeHTTP(w, withSession(httptest.NewRequest(http.MethodPost, "/api/v1/auth/logout", nil), authUC))
